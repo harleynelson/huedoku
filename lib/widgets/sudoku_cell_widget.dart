@@ -50,7 +50,7 @@ class SudokuCellWidget extends StatelessWidget {
                  (gameProvider.selectedRow! ~/ 3 == row ~/ 3 && gameProvider.selectedCol! ~/ 3 == col ~/ 3)) {
                     highlightPeer = true;
                     // --- Set Highlight Peers Alpha to 0.3 ---
-                    tileBackgroundColor = currentTheme.focusColor.withOpacity(0.1); // EXACTLY 0.3 opacity
+                    tileBackgroundColor = currentTheme.focusColor.withOpacity(0.1); // EXACTLY 0.1 opacity
                  }
            }
 

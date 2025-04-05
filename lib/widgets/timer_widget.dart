@@ -2,11 +2,12 @@
 // Location: ./lib/widgets/timer_widget.dart
 
 import 'dart:async';
-import 'dart:math'; // For PI
 import 'package:flutter/material.dart';
 import 'package:huedoku/providers/game_provider.dart';
 import 'package:provider/provider.dart';
-import 'dart:ui' as ui; // For font features
+import 'dart:ui' show FontFeature; // Only needed for FontFeature
+
+// Removed FireParticle class
 
 class TimerWidget extends StatefulWidget {
   const TimerWidget({super.key});
@@ -15,11 +16,15 @@ class TimerWidget extends StatefulWidget {
   State<TimerWidget> createState() => _TimerWidgetState();
 }
 
+// Removed TickerProviderStateMixin
 class _TimerWidgetState extends State<TimerWidget> {
   Timer? _displayTimer;
-  late Duration _displayTime; // Holds the time shown by this widget
+  late Duration _displayTime;
 
-  // Helper function to format duration
+  // Removed _cometAnimationController
+  // Removed _particles list and _random
+
+  // Helper function to format duration (remains the same)
   String _formatDuration(Duration duration) {
     String twoDigits(int n) => n.toString().padLeft(2, '0');
     String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
@@ -31,23 +36,27 @@ class _TimerWidgetState extends State<TimerWidget> {
     }
   }
 
-  void _startDisplayTimer() {
-    // Ensure any existing timer is cancelled
-    _displayTimer?.cancel();
-    // Start a new timer that updates the local state every second
-    _displayTimer = Timer.periodic(const Duration(milliseconds: 100), (_) { // Update more frequently for smoother progress
-      // Check game state via provider *without listening* to avoid rebuild loops
+  // Timer to update the displayed time text
+   void _startDisplayTimer() {
+     _displayTimer?.cancel();
+    // Update roughly every second is fine for text display
+    _displayTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       final gameProvider = Provider.of<GameProvider>(context, listen: false);
       if (!gameProvider.isPaused && !gameProvider.isCompleted) {
-        if (mounted) { // Check if widget is still in the tree
-            setState(() {
-              _displayTime += const Duration(milliseconds: 100);
-            });
-        } else {
-             _displayTimer?.cancel(); // Stop timer if widget is disposed
-        }
+        if (mounted) {
+           final providerTime = gameProvider.elapsedTime;
+           // Only trigger setState if the seconds actually change
+           if (_displayTime.inSeconds != providerTime.inSeconds) {
+             setState(() { _displayTime = providerTime; });
+           }
+        } else { _displayTimer?.cancel(); }
       } else {
-          _displayTimer?.cancel(); // Stop if paused or completed
+         // Sync one last time if paused/completed
+         final providerTime = gameProvider.elapsedTime;
+         if (mounted && _displayTime.inSeconds != providerTime.inSeconds) {
+             setState(() { _displayTime = providerTime; });
+         }
+         _displayTimer?.cancel();
       }
     });
   }
@@ -55,91 +64,62 @@ class _TimerWidgetState extends State<TimerWidget> {
   @override
   void initState() {
     super.initState();
-    // Initialize _displayTime from GameProvider
     final gameProvider = Provider.of<GameProvider>(context, listen: false);
     _displayTime = gameProvider.elapsedTime;
 
-    // Start the display timer immediately if the game isn't paused/completed
+    // Removed animation controller initialization
+
     if (!gameProvider.isPaused && !gameProvider.isCompleted) {
       _startDisplayTimer();
     }
   }
 
+  // Removed _updateParticles method
+
   @override
   void dispose() {
-    _displayTimer?.cancel(); // Cancel timer when widget is removed
+    _displayTimer?.cancel();
+    // Removed animation controller disposal
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // Use Consumer to react ONLY to relevant GameProvider state changes
-    // (isPaused, isCompleted, elapsedTime for initialization/reset)
+    // Listen to GameProvider to manage the _displayTimer start/stop
     return Consumer<GameProvider>(
-      builder: (context, gameProvider, child) {
-        // --- Sync display time and timer state with GameProvider ---
-         final bool shouldTimerRun = !gameProvider.isPaused && !gameProvider.isCompleted;
-
-         // Sync time if it diverges significantly or on state change
-         if (_displayTime.inSeconds != gameProvider.elapsedTime.inSeconds || shouldTimerRun != (_displayTimer?.isActive ?? false)) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                 if (mounted) {
-                   // Update display time to match provider state accurately
-                   setState(() => _displayTime = gameProvider.elapsedTime);
-
-                   // Start/stop the display timer based on provider state
-                   if (shouldTimerRun && !(_displayTimer?.isActive ?? false)) {
-                      _startDisplayTimer();
-                   } else if (!shouldTimerRun && (_displayTimer?.isActive ?? false)) {
-                      _displayTimer?.cancel();
-                   }
-                 }
-              });
+       builder: (context, gameProvider, child) {
+        final bool shouldTimerRun = !gameProvider.isPaused && !gameProvider.isCompleted;
+         // --- Timer Start/Stop Logic ---
+         if (shouldTimerRun && !(_displayTimer?.isActive ?? false)) {
+             _startDisplayTimer();
+         } else if (!shouldTimerRun && (_displayTimer?.isActive ?? false)) {
+             _displayTimer?.cancel();
+             // Ensure final time is displayed correctly when stopped
+             final providerTime = gameProvider.elapsedTime;
+             if (_displayTime.inSeconds != providerTime.inSeconds) {
+                 // Use WidgetsBinding to avoid setState during build if needed
+                 WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) setState(() => _displayTime = providerTime);
+                 });
+             }
          }
-        // --- End Sync Logic ---
+        // --- End Timer Start/Stop Logic ---
 
-        // --- Build Engaging Timer UI ---
-        double progress = (_displayTime.inMilliseconds % 60000) / 60000.0; // 0.0 to 1.0 for seconds
-        Color progressColor = Theme.of(context).primaryColor;
-        Color trackColor = Theme.of(context).primaryColor.withOpacity(0.2);
-        double indicatorSize = 40.0; // Size of the circular indicator
+        String timeText = _formatDuration(_displayTime);
+        final currentTheme = Theme.of(context);
 
-        return Stack(
-          alignment: Alignment.center,
+        // --- Build Simple Text Timer UI ---
+        return Row(
+          mainAxisSize: MainAxisSize.min, // Take only needed space
           children: [
-            // Circular Progress Indicator background track
-            SizedBox(
-              width: indicatorSize,
-              height: indicatorSize,
-              child: CircularProgressIndicator(
-                value: 1.0, // Full circle track
-                strokeWidth: 3.0, // Thickness of track
-                valueColor: AlwaysStoppedAnimation<Color>(trackColor),
-              ),
-            ),
-            // Circular Progress Indicator foreground progress
-             SizedBox(
-              width: indicatorSize,
-              height: indicatorSize,
-              child: Transform( // Rotate to start from top
-                 alignment: Alignment.center,
-                 transform: Matrix4.rotationZ(-pi / 2),
-                 child: CircularProgressIndicator(
-                   value: progress,
-                   strokeWidth: 3.5, // Slightly thicker progress line
-                   valueColor: AlwaysStoppedAnimation<Color>(progressColor),
-                   // Optional: Add strokeCap for rounded ends
-                   // strokeCap: StrokeCap.round,
-                 ),
-               ),
-             ),
-            // Display the time text in the center
             Text(
-              _formatDuration(_displayTime),
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith( // Smaller font inside circle
-                fontWeight: FontWeight.w600,
-                fontFeatures: [const ui.FontFeature.tabularFigures()], // Consistent number width
-                 color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.9),
+              timeText,
+              style: currentTheme.textTheme.titleMedium?.copyWith(
+                // Use tabular figures for consistent number width
+                fontFeatures: [const FontFeature.tabularFigures()],
+                fontWeight: FontWeight.w600, // Slightly bolder
+                letterSpacing: 0.5, // Add slight letter spacing
+                 color: currentTheme.colorScheme.onSurface.withOpacity(0.95),
               ),
             ),
           ],
@@ -148,3 +128,5 @@ class _TimerWidgetState extends State<TimerWidget> {
     );
   }
 }
+
+// Removed CometTimerPainter class
