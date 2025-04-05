@@ -2,21 +2,24 @@
 // Location: ./lib/screens/game_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart'; // Import SchedulerBinding
-import 'package:huedoku/models/color_palette.dart'; // Import needed for palette type
-import 'package:huedoku/providers/game_provider.dart';
+import 'package:flutter/scheduler.dart';
+import 'package:huedoku/models/color_palette.dart';
+import 'package:huedoku/providers/game_provider.dart'; // Import GameProvider for difficulty map
 import 'package:huedoku/providers/settings_provider.dart';
-import 'package:huedoku/widgets/bokeh_painter.dart'; // Import bokeh
-import 'package:huedoku/widgets/game_controls.dart'; // Import needed for GameControls context
+import 'package:huedoku/widgets/bokeh_painter.dart';
+import 'package:huedoku/widgets/game_controls.dart';
 import 'package:huedoku/widgets/palette_selector_widget.dart';
-import 'package:huedoku/widgets/settings_content.dart'; // Import the settings content
+import 'package:huedoku/widgets/settings_content.dart';
 import 'package:huedoku/widgets/sudoku_grid_widget.dart';
-import 'package:huedoku/widgets/timer_widget.dart'; // Import TimerWidget
+import 'package:huedoku/widgets/timer_widget.dart'; // Import TimerWidget (now text-based)
 import 'package:provider/provider.dart';
-import 'dart:async'; // Import for Timer
-import 'dart:ui' as ui; // Import for ImageFilter (used in controls/palette)
-import 'package:confetti/confetti.dart'; // Import Confetti package
-import 'dart:math'; // Import for confetti path
+import 'dart:async';
+import 'dart:ui' as ui;
+import 'package:confetti/confetti.dart';
+import 'dart:math';
+import 'package:huedoku/themes.dart'; // Import themes for theme data access
+import 'package:google_fonts/google_fonts.dart'; // Import Google Fonts
+
 
 class GameScreen extends StatefulWidget {
   const GameScreen({super.key});
@@ -25,58 +28,48 @@ class GameScreen extends StatefulWidget {
   State<GameScreen> createState() => _GameScreenState();
 }
 
-// Add TickerProviderStateMixin for animations
 class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   bool _completionDialogShown = false;
-  List<BokehParticle> _particles = []; // Bokeh state
+  List<BokehParticle> _particles = [];
   bool _particlesInitialized = false;
   Size? _lastScreenSize;
-  bool? _lastThemeIsDark; // Store theme for bokeh generation
-  ColorPalette? _lastPaletteUsed; // Store palette for bokeh generation
+  bool? _lastThemeIsDark;
+  ColorPalette? _lastPaletteUsed;
 
-  // --- Animation Controller for Bokeh ---
   late AnimationController _bokehAnimationController;
   late Animation<double> _bokehAnimation;
 
-  // --- Confetti Controller ---
   late ConfettiController _confettiController;
 
-  // Function to update/initialize particles safely
   void _updateBokehIfNeeded() {
+      // (Implementation remains the same)
      if (!mounted) return;
-
      final mediaQueryData = MediaQuery.of(context);
      final settings = Provider.of<SettingsProvider>(context, listen: false);
-     // Check if size is available and valid
      if (mediaQueryData.size.isEmpty || mediaQueryData.size.width <= 0 || mediaQueryData.size.height <= 0) {
          SchedulerBinding.instance.addPostFrameCallback((_) => _updateBokehIfNeeded());
          return;
      }
      final currentSize = mediaQueryData.size;
-     final currentThemeIsDark = settings.isDarkMode;
-     final currentPalette = settings.selectedPalette; // Get current palette
+     final currentThemeData = appThemes[settings.selectedThemeKey] ?? appThemes[lightThemeKey]!;
+     final currentThemeIsDark = currentThemeData.brightness == Brightness.dark;
+     final currentPalette = settings.selectedPalette;
 
-
-     // Conditions to regenerate particles:
      bool needsUpdate = !_particlesInitialized ||
                          currentSize != _lastScreenSize ||
                          currentThemeIsDark != _lastThemeIsDark ||
-                         currentPalette != _lastPaletteUsed; // Check if palette changed
+                         currentPalette != _lastPaletteUsed;
 
      if (needsUpdate) {
         SchedulerBinding.instance.addPostFrameCallback((_) {
            if (!mounted) return;
-            // print("GameScreen: Updating Bokeh Particles (Init: $_particlesInitialized, Size: $currentSize, DarkMode: $currentThemeIsDark, Palette: ${currentPalette.name})"); // DEBUG
-
-           // Pass current palette to createBokehParticles
            final newParticles = createBokehParticles(currentSize, currentThemeIsDark, 12, currentPalette);
-
             setState(() {
                _particles = newParticles;
                _particlesInitialized = true;
                _lastScreenSize = currentSize;
                _lastThemeIsDark = currentThemeIsDark;
-               _lastPaletteUsed = currentPalette; // Store palette used
+               _lastPaletteUsed = currentPalette;
             });
         });
      }
@@ -86,132 +79,102 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   @override
   void initState() {
       super.initState();
-      // --- Initialize Bokeh Animation Controller ---
+      // Init Bokeh Animation
       _bokehAnimationController = AnimationController(
-         duration: const Duration(seconds: 20), // Adjust duration for speed
+         duration: const Duration(seconds: 20),
          vsync: this,
-       )..repeat(); // Loop the animation
-       _bokehAnimation = CurvedAnimation(
-         parent: _bokehAnimationController,
-         curve: Curves.linear, // Use linear for constant drift/pulse
-       );
-
-
-      // --- Initialize Confetti Controller ---
+       )..repeat();
+       _bokehAnimation = CurvedAnimation( parent: _bokehAnimationController, curve: Curves.linear );
+      // Init Confetti
       _confettiController = ConfettiController(duration: const Duration(seconds: 2));
-
-      // Initial update check moved to didChangeDependencies
   }
 
    @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // This is the correct place for context-dependent initialization
-     _updateBokehIfNeeded();
+    _updateBokehIfNeeded();
   }
 
    @override
   void dispose() {
-     _bokehAnimationController.dispose(); // Dispose animation controller
-     _confettiController.dispose(); // Dispose confetti controller
+     _bokehAnimationController.dispose();
+     _confettiController.dispose();
      super.dispose();
    }
 
-
-  // Helper function to format duration for the dialog
   String _formatDuration(Duration duration) {
-    String twoDigits(int n) => n.toString().padLeft(2, '0');
-    String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
-    String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
-    if (duration.inHours > 0) {
-      return "${twoDigits(duration.inHours)}:$twoDigitMinutes:$twoDigitSeconds";
-    } else {
-      return "$twoDigitMinutes:$twoDigitSeconds";
-    }
+      // (Implementation remains the same)
+      String twoDigits(int n) => n.toString().padLeft(2, '0');
+      String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
+      String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
+      if (duration.inHours > 0) { return "${twoDigits(duration.inHours)}:$twoDigitMinutes:$twoDigitSeconds"; }
+      else { return "$twoDigitMinutes:$twoDigitSeconds"; }
    }
 
-  // --- Updated Method: Animated Score Dialog ---
-   // Method to show the completion dialog with animated score
   void _showCompletionDialog(BuildContext context, Duration finalTime) {
-      Timer(const Duration(milliseconds: 150), () { // Slightly longer delay
+      // (Implementation remains largely the same, using GoogleFonts)
+      Timer(const Duration(milliseconds: 150), () {
           if (!mounted || _completionDialogShown) return;
           setState(() { _completionDialogShown = true; });
-
-          // Play confetti
           _confettiController.play();
 
           showDialog(
               context: context,
-              barrierDismissible: false, // Prevent dismissing by tapping outside
+              barrierDismissible: false,
               builder: (BuildContext dialogContext) {
-                  // --- Score Animation Setup ---
-                  // Use a StatefulWidget for the dialog content to manage animation
                   return StatefulBuilder(
                      builder: (context, setStateDialog) {
-                        late AnimationController scoreAnimController;
-                        late Animation<double> scoreAnimation;
-                        final scoreTicker = TickerProviderDialog(setStateDialog); // Ticker for dialog
-
-                        scoreAnimController = AnimationController(
-                            duration: const Duration(milliseconds: 1200), // Duration of score animation
-                            vsync: scoreTicker,
-                        );
-                         scoreAnimation = Tween<double>(begin: 0.0, end: finalTime.inSeconds.toDouble()).animate(
+                        final scoreTicker = TickerProviderDialog(setStateDialog);
+                        final scoreAnimController = AnimationController(
+                            duration: const Duration(milliseconds: 1200), vsync: scoreTicker );
+                        final scoreAnimation = Tween<double>(begin: 0.0, end: finalTime.inSeconds.toDouble()).animate(
                             CurvedAnimation(parent: scoreAnimController, curve: Curves.easeOutCubic)
-                        )..addListener(() {
-                            // Update dialog state as animation progresses
-                            setStateDialog((){});
-                         });
-
-                        // Start the animation when the dialog builds
+                        )..addListener(() { setStateDialog((){}); });
                         scoreAnimController.forward();
 
-                        // --- Dialog Content ---
                          return AlertDialog(
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)), // Rounded dialog
-                            title: const Row( // Add icon to title
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
+                            title: Row(
                                children: [
-                                 Icon(Icons.celebration_outlined, color: Colors.amber),
-                                 SizedBox(width: 8),
-                                 Text('Congratulations!'),
+                                 Icon(Icons.celebration_outlined, color: Theme.of(context).colorScheme.primary),
+                                 const SizedBox(width: 8),
+                                 Text('Congratulations!', style: GoogleFonts.nunito()),
                                ],
                              ),
-                            content: Column( // Use Column for layout
+                            content: Column(
                                mainAxisSize: MainAxisSize.min,
                                children: [
-                                 const Text('You solved the Huedoku in:'),
+                                 Text('You solved the Huedoku in:', style: GoogleFonts.nunito()),
                                  const SizedBox(height: 10),
-                                 // Animated Score Display
                                  Text(
                                     _formatDuration(Duration(seconds: scoreAnimation.value.toInt())),
-                                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                    style: GoogleFonts.nunito( // Apply font
+                                        textStyle: Theme.of(context).textTheme.headlineSmall,
                                         fontWeight: FontWeight.bold,
                                         color: Theme.of(context).primaryColor,
                                          fontFeatures: [const ui.FontFeature.tabularFigures()],
                                     ),
                                  ),
-                                 // Optional: Add a simple visual like animated stars later
                                   const SizedBox(height: 15),
                                ],
                             ),
                             actions: <Widget>[
                                 TextButton(
-                                    child: const Text('New Game'),
+                                    child: Text('New Game', style: GoogleFonts.nunito()),
                                     onPressed: () {
-                                        scoreAnimController.dispose(); // Dispose animation controller
+                                        scoreAnimController.dispose();
                                         Navigator.of(dialogContext).pop();
                                         final game = Provider.of<GameProvider>(context, listen: false);
+                                        // When starting new game, re-use last selected difficulty from home? Or default?
+                                        // For now, defaults to medium (1) based on GameProvider default
                                         game.loadNewPuzzle();
-                                        setState(() {
-                                            _completionDialogShown = false;
-                                            _particlesInitialized = false; // Force re-init of bokeh
-                                        });
+                                        setState(() { _completionDialogShown = false; _particlesInitialized = false; });
                                     },
                                 ),
                                 TextButton(
-                                  child: const Text('Close'),
+                                  child: Text('Close', style: GoogleFonts.nunito()),
                                   onPressed: () {
-                                      scoreAnimController.dispose(); // Dispose animation controller
+                                      scoreAnimController.dispose();
                                       Navigator.of(dialogContext).pop();
                                       setState(() { _completionDialogShown = false; });
                                   },
@@ -225,117 +188,119 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       });
   }
 
-
-  // Method to show the settings bottom sheet
   void _showSettingsSheet(BuildContext context) {
-     showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent, // Make sheet background transparent for glass effect
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20.0)),
-      ),
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.80, // Allow more height
-      ),
-      builder: (BuildContext sheetContext) {
-         // Apply glass effect to the sheet content itself
-         final isDark = Theme.of(sheetContext).brightness == Brightness.dark;
-         final glassColor = (isDark ? Colors.black : Colors.white).withOpacity(0.3);
-         final glassBorder = (isDark ? Colors.white : Colors.black).withOpacity(0.1);
-
-        return ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20.0)),
-          child: BackdropFilter(
-            filter: ui.ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-            child: Container(
-               decoration: BoxDecoration(
-                 color: glassColor,
-                 borderRadius: const BorderRadius.vertical(top: Radius.circular(20.0)),
-                 border: Border(top: BorderSide(color: glassBorder, width: 0.5)),
-               ),
-               // Add padding *inside* the glass container
-               child: Padding(
-                 padding: const EdgeInsets.only(top: 8.0), // Padding for grab handle area
-                 child: SettingsContent(), // Use the settings content
-               )
-             ),
-          ),
+       // (Implementation remains the same)
+       showModalBottomSheet(
+          context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
+          shape: const RoundedRectangleBorder( borderRadius: BorderRadius.vertical(top: Radius.circular(20.0)), ),
+          constraints: BoxConstraints( maxHeight: MediaQuery.of(context).size.height * 0.80, ),
+          builder: (BuildContext sheetContext) {
+             final isDark = Theme.of(sheetContext).brightness == Brightness.dark;
+             final glassColor = (isDark ? Colors.black : Colors.white).withOpacity(0.3);
+             final glassBorder = (isDark ? Colors.white : Colors.black).withOpacity(0.1);
+            return ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20.0)),
+              child: BackdropFilter( filter: ui.ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+                child: Container(
+                   decoration: BoxDecoration( color: glassColor, borderRadius: const BorderRadius.vertical(top: Radius.circular(20.0)), border: Border(top: BorderSide(color: glassBorder, width: 0.5)), ),
+                   child: Padding( padding: const EdgeInsets.only(top: 8.0), child: SettingsContent(), )
+                 ),
+              ),
+            );
+          },
         );
-      },
-    );
    }
 
 
   @override
   Widget build(BuildContext context) {
-    // Listen for theme changes which affect gradient & bokeh
     final settingsProvider = Provider.of<SettingsProvider>(context);
-    final gameProvider = Provider.of<GameProvider>(context, listen: false); // Use listen:false for one-off checks if needed
+    // No longer need listen:false version if only used in callbacks
+    // final gameProvider = Provider.of<GameProvider>(context, listen: false);
+    final currentTheme = Theme.of(context); // Get theme data
 
-    // Schedule bokeh update check post-build if needed (reacts to size/theme/palette changes)
     _updateBokehIfNeeded();
 
-    // Define Gradients based on theme
-    final lightGradient = LinearGradient(
-            colors: [Colors.teal[100]!, Colors.lightBlue[200]!, Colors.cyan[50]!], // Added cyan
+    final Gradient backgroundGradient = LinearGradient(
+            colors: [
+                currentTheme.colorScheme.surface.withOpacity(0.8),
+                currentTheme.colorScheme.background,
+                currentTheme.colorScheme.surfaceVariant.withOpacity(0.7),
+            ],
             begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          );
-     final darkGradient = LinearGradient(
-            colors: [Colors.blueGrey[800]!, Colors.grey[900]!, Colors.indigo[900]!], // Added indigo
-             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           );
 
     return Scaffold(
-      // Make AppBar transparent to see background effects
-      backgroundColor: Colors.transparent, // Scaffold background transparent
-      extendBodyBehindAppBar: true, // Allow body to go behind app bar
+      backgroundColor: Colors.transparent,
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-         backgroundColor: Theme.of(context).brightness == Brightness.dark
-             ? Colors.black.withOpacity(0.2) // Darker transparent AppBar
-             : Colors.white.withOpacity(0.1), // Lighter transparent AppBar
-         elevation: 0, // No shadow
-         foregroundColor: Theme.of(context).colorScheme.onSurface, // Ensure icons/text are visible
-         title: const Text('Huedoku Game'),
+         backgroundColor: currentTheme.brightness == Brightness.dark
+             ? Colors.black.withOpacity(0.2)
+             : Colors.white.withOpacity(0.1),
+         elevation: 0,
+         foregroundColor: currentTheme.colorScheme.onSurface,
+         // --- AppBar Title Area ---
+         title: Text('Huedoku', style: GoogleFonts.nunito()), // Keep title simple
          leading: IconButton(
            icon: const Icon(Icons.arrow_back),
            onPressed: () {
-             Provider.of<GameProvider>(context, listen: false).pauseGame(); // Pause on back
+             Provider.of<GameProvider>(context, listen: false).pauseGame();
              Navigator.pop(context);
            },
          ),
          actions: [
-            // --- Use Consumer only for parts that *need* to rebuild on game state change ---
-            Selector<GameProvider, Tuple2<bool, bool>>( // Select only needed state
+             // --- Display Difficulty ---
+             Consumer<GameProvider>( // Listen to GameProvider for difficulty
+                builder: (context, game, child) {
+                  final difficultyLevel = game.currentPuzzleDifficulty;
+                  final difficultyText = difficultyLevel != null
+                                        ? difficultyLabels[difficultyLevel] ?? '?' // Get label or '?'
+                                        : ''; // Show nothing if null
+
+                  if (difficultyText.isEmpty) {
+                      return const SizedBox.shrink(); // Don't show if no difficulty set
+                  }
+
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: Chip(
+                       label: Text(
+                          difficultyText,
+                          style: GoogleFonts.nunito(
+                            textStyle: currentTheme.textTheme.labelSmall,
+                            color: currentTheme.colorScheme.onSecondaryContainer,
+                            fontWeight: FontWeight.w600,
+                          )
+                       ),
+                       backgroundColor: currentTheme.colorScheme.secondaryContainer.withOpacity(0.7),
+                       padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 0),
+                       visualDensity: VisualDensity.compact, // Make chip smaller
+                       side: BorderSide.none,
+                     ),
+                  );
+                }
+             ),
+
+            // --- Pause/Play Button ---
+            Selector<GameProvider, Tuple2<bool, bool>>(
                selector: (_, game) => Tuple2(game.isPaused, game.isCompleted),
                builder: (context, data, child) {
                    final isPaused = data.item1;
                    final isCompleted = data.item2;
 
-                   // Check for completion within the consumer that watches GameProvider
                    if (isCompleted && !_completionDialogShown) {
-                      // Use WidgetsBinding to ensure the dialog is shown after the build phase
                       WidgetsBinding.instance.addPostFrameCallback((_) {
-                          // Ensure context is still valid before showing dialog
-                          if(mounted) _showCompletionDialog(context, gameProvider.elapsedTime); // Use listen:false version here
+                          if(mounted) _showCompletionDialog(context, Provider.of<GameProvider>(context, listen: false).elapsedTime);
                       });
                    }
 
                    return IconButton(
-                     // Disable pause/play button if game is completed
-                     icon: Icon(isPaused ? Icons.play_arrow : Icons.pause,
-                               color: isCompleted ? Colors.grey : null),
+                     icon: Icon(isPaused ? Icons.play_arrow : Icons.pause, color: isCompleted ? Colors.grey : null),
                      tooltip: isPaused ? 'Resume' : 'Pause',
-                     onPressed: isCompleted ? null : () { // Disable if completed
-                       // Use listen:false version for actions
+                     onPressed: isCompleted ? null : () {
                        final game = Provider.of<GameProvider>(context, listen: false);
-                       if (game.isPaused) {
-                         game.resumeGame();
-                       } else {
-                         game.pauseGame();
-                       }
+                       if (game.isPaused) { game.resumeGame(); } else { game.pauseGame(); }
                      },
                    );
                }
@@ -344,88 +309,43 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
             IconButton(
              icon: const Icon(Icons.settings_outlined),
              tooltip: 'Settings',
-             onPressed: () {
-               _showSettingsSheet(context); // Call the method to show the sheet
-             },
+             onPressed: () { _showSettingsSheet(context); },
             ),
          ],
        ),
-      body: Stack( // Use Stack for layering background effects
+      body: Stack(
         children: [
-            // Layer 1: Base Gradient
-            Container(
-              decoration: BoxDecoration(
-                gradient: settingsProvider.isDarkMode ? darkGradient : lightGradient,
-              ),
-            ),
-
-            // Layer 2: Bokeh Effect - Now uses animation controller
-            if (_particlesInitialized)
-               CustomPaint(
-                  // Pass the animation value to the painter
-                  painter: BokehPainter(particles: _particles, animation: _bokehAnimation),
-                  size: MediaQuery.of(context).size,
-               ),
-
-             // Layer 3: Confetti - Aligned to top center
-             Align(
-               alignment: Alignment.topCenter,
-               child: ConfettiWidget(
-                 confettiController: _confettiController,
-                 blastDirectionality: BlastDirectionality.explosive, // Or directional
-                 shouldLoop: false,
-                 numberOfParticles: 20, // Adjust particle count
-                 gravity: 0.1, // Adjust gravity
-                 emissionFrequency: 0.03, // Adjust frequency
-                 maxBlastForce: 20, // Adjust force
-                 minBlastForce: 8,
-                 particleDrag: 0.05,
-                  colors: settingsProvider.selectedPalette.colors, // Use palette colors for confetti!
-                  // Example path: create simulates falling confetti
-                 createParticlePath: (size) {
-                    final path = Path();
-                    path.addOval(Rect.fromCircle(center: Offset.zero, radius: size.width / 2));
-                    return path;
-                 },
-               ),
-             ),
-
+            // Layer 1: Gradient
+            Container( decoration: BoxDecoration( gradient: backgroundGradient ) ),
+            // Layer 2: Bokeh
+            if (_particlesInitialized) CustomPaint( painter: BokehPainter(particles: _particles, animation: _bokehAnimation), size: MediaQuery.of(context).size ),
+             // Layer 3: Confetti
+             Align( alignment: Alignment.topCenter, child: ConfettiWidget( confettiController: _confettiController, blastDirectionality: BlastDirectionality.explosive, shouldLoop: false, numberOfParticles: 20, gravity: 0.1, emissionFrequency: 0.03, maxBlastForce: 20, minBlastForce: 8, particleDrag: 0.05, colors: settingsProvider.selectedPalette.colors, createParticlePath: (size) => Path()..addOval(Rect.fromCircle(center: Offset.zero, radius: size.width / 2)), ), ),
             // Layer 4: Main Game Content
-            SafeArea( // Ensure game content avoids notches/system areas
+            SafeArea(
               child: Padding(
-                padding: const EdgeInsets.all(12.0), // Slightly more padding
+                padding: const EdgeInsets.all(12.0),
                 child: Column(
                   children: <Widget>[
-                    // Top Row: Timer (Now potentially replaced by TimerWidget changes)
+                    // Top Row: Timer
                     Padding(
                        padding: const EdgeInsets.symmetric(vertical: 10.0),
-                       child: Consumer<SettingsProvider>( // Timer visibility still controlled by consumer
+                       child: Consumer<SettingsProvider>(
                          builder: (context, settings, child) {
                            return settings.timerEnabled
-                               // Use the potentially updated TimerWidget
-                               ? const Center(child: TimerWidget())
-                               : const SizedBox(height: 50); // Ensure consistent height placeholder
+                               ? Center(child: TimerWidget()) // Simple text timer now
+                               : const SizedBox(height: 50);
                          },
                        ),
                     ),
-                    const SizedBox(height: 10), // Space before grid
-
-                    // The Sudoku Grid (Listens to Game and Settings providers internally)
-                    Expanded(
-                       child: Center(
-                         child: AspectRatio(
-                           aspectRatio: 1.0,
-                           child: SudokuGridWidget(),
-                         ),
-                       ),
-                     ),
+                    const SizedBox(height: 10),
+                    // Grid
+                    Expanded( child: Center( child: AspectRatio( aspectRatio: 1.0, child: SudokuGridWidget() ) ) ),
                     const SizedBox(height: 15),
-
-                    // Palette Selector (Listens to Game and Settings providers internally)
+                    // Palette Selector
                     const PaletteSelectorWidget(),
                     const SizedBox(height: 15),
-
-                    // Game Controls (Pass context implicitly)
+                    // Game Controls
                     const GameControls(),
                     const SizedBox(height: 10),
                   ],
@@ -438,22 +358,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 }
 
-// Helper class to provide a Ticker for the Dialog animation
-class TickerProviderDialog extends TickerProvider {
-  final StateSetter _setState;
-  TickerProviderDialog(this._setState);
-
-  @override
-  Ticker createTicker(TickerCallback onTick) {
-    return Ticker(onTick, debugLabel: 'DialogTicker');
-  }
-}
-
-// Simple Tuple class for Selector
-class Tuple2<T1, T2> {
-    final T1 item1;
-    final T2 item2;
-    Tuple2(this.item1, this.item2);
-     @override bool operator ==(Object other) => other is Tuple2 && item1 == other.item1 && item2 == other.item2;
-    @override int get hashCode => Object.hash(item1, item2);
-}
+// Helper classes (TickerProviderDialog, Tuple2) remain the same
+class TickerProviderDialog extends TickerProvider { final StateSetter _setState; TickerProviderDialog(this._setState); @override Ticker createTicker(TickerCallback onTick) => Ticker(onTick, debugLabel: 'DialogTicker'); }
+class Tuple2<T1, T2> { final T1 item1; final T2 item2; Tuple2(this.item1, this.item2); @override bool operator ==(Object other) => other is Tuple2 && item1 == other.item1 && item2 == other.item2; @override int get hashCode => Object.hash(item1, item2); }
