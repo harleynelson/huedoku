@@ -172,32 +172,37 @@ class SudokuCellWidget extends StatelessWidget {
      final bool isDarkBg = ThemeData.estimateBrightnessForColor(tileBgColor) == Brightness.dark;
      final Color dotBorderColor = isDarkBg ? Colors.white.withOpacity(0.3) : Colors.black.withOpacity(0.3);
      int numCandidates = candidates.length;
-     // Adjust grid size based on number
-     int crossAxisCount = (numCandidates > 6) ? 3 : ((numCandidates > 1) ? 2 : 1);
-     // Ensure crossAxisCount is at least 1 if there are candidates
-     if (numCandidates > 0 && crossAxisCount < 1) crossAxisCount = 1;
+
+     // --- Corrected Grid Size Logic ---
+     // Use 3x3 grid if more than 4 candidates, 2x2 if 2-4, 1x1 if 1.
+     int crossAxisCount = (numCandidates > 4) ? 3 : ((numCandidates > 1) ? 2 : 1);
+
+     // Fallback safety check (shouldn't be needed with above logic)
+     if (numCandidates == 0) crossAxisCount = 1; // Avoid division by zero if set is empty
 
 
      List<int> sortedCandidates = candidates.toList()..sort();
 
     return Padding(
-       padding: const EdgeInsets.all(1.0), // Padding for the whole candidate grid
+       padding: const EdgeInsets.all(1.5), // Slightly more padding for candidate grid
        child: GridView.count(
-         crossAxisCount: crossAxisCount,
-         mainAxisSpacing: 0.5, // Spacing between candidate rows
-         crossAxisSpacing: 0.5, // Spacing between candidate columns
+         crossAxisCount: crossAxisCount, // Use the calculated count
+         mainAxisSpacing: 1, // Spacing between candidate rows
+         crossAxisSpacing: 1, // Spacing between candidate columns
          padding: const EdgeInsets.all(1.0), // Padding inside the cell for candidates
          shrinkWrap: true, // Take minimum space needed
          physics: const NeverScrollableScrollPhysics(),
          children: sortedCandidates.map((index) {
            // Try getting size constraints for better relative sizing
-           double defaultSize = 8.0; // Default dot size
-            double scaleFactor = 0.015; // Scale factor based on screen size
+           double defaultSize = 7.0; // Slightly smaller default dot size
+            double scaleFactor = 0.014; // Scale factor based on screen size
             try {
                 // Use context safely
                 if(context.mounted) {
                   final screenMin = min(MediaQuery.of(context).size.width, MediaQuery.of(context).size.height);
-                  defaultSize = max(6.0, min(10.0, screenMin * scaleFactor)); // Clamp size between 6 and 10
+                  // Adjust dot size based on grid density
+                  double sizeMultiplier = (crossAxisCount == 3) ? 0.9 : ((crossAxisCount == 2) ? 1.0 : 1.1);
+                  defaultSize = max(4.0, min(8.0, screenMin * scaleFactor * sizeMultiplier)); // Clamp size
                 }
             } catch(e) {
                 print("Error getting MediaQuery in _buildCandidatesWidget: $e");
@@ -208,9 +213,10 @@ class SudokuCellWidget extends StatelessWidget {
              child: Container(
                width: defaultSize,
                height: defaultSize,
-               constraints: const BoxConstraints(minWidth: 6, minHeight: 6, maxWidth: 10, maxHeight: 10), // Min/Max sizes backup
+               constraints: const BoxConstraints(minWidth: 4, minHeight: 4, maxWidth: 8, maxHeight: 8), // Min/Max sizes backup
                decoration: BoxDecoration(
-                 color: palette[index], // Use passed palette
+                  // Add subtle alpha to candidate dots too
+                 color: palette[index].withOpacity(0.9),
                  shape: BoxShape.circle,
                  border: Border.all(color: dotBorderColor, width: 0.5)
                ),
