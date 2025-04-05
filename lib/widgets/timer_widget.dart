@@ -2,9 +2,11 @@
 // Location: ./lib/widgets/timer_widget.dart
 
 import 'dart:async';
+import 'dart:math'; // For PI
 import 'package:flutter/material.dart';
 import 'package:huedoku/providers/game_provider.dart';
 import 'package:provider/provider.dart';
+import 'dart:ui' as ui; // For font features
 
 class TimerWidget extends StatefulWidget {
   const TimerWidget({super.key});
@@ -33,18 +35,19 @@ class _TimerWidgetState extends State<TimerWidget> {
     // Ensure any existing timer is cancelled
     _displayTimer?.cancel();
     // Start a new timer that updates the local state every second
-    _displayTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+    _displayTimer = Timer.periodic(const Duration(milliseconds: 100), (_) { // Update more frequently for smoother progress
       // Check game state via provider *without listening* to avoid rebuild loops
-      // We rely on the listener below to stop/start this timer correctly
       final gameProvider = Provider.of<GameProvider>(context, listen: false);
       if (!gameProvider.isPaused && !gameProvider.isCompleted) {
         if (mounted) { // Check if widget is still in the tree
             setState(() {
-              _displayTime += const Duration(seconds: 1);
+              _displayTime += const Duration(milliseconds: 100);
             });
         } else {
              _displayTimer?.cancel(); // Stop timer if widget is disposed
         }
+      } else {
+          _displayTimer?.cancel(); // Stop if paused or completed
       }
     });
   }
@@ -75,51 +78,68 @@ class _TimerWidgetState extends State<TimerWidget> {
     return Consumer<GameProvider>(
       builder: (context, gameProvider, child) {
         // --- Sync display time and timer state with GameProvider ---
-        // This logic runs when GameProvider notifies (e.g., on pause, resume, new game)
+         final bool shouldTimerRun = !gameProvider.isPaused && !gameProvider.isCompleted;
 
-        // If game just reset, update display time
-        if (gameProvider.elapsedTime == Duration.zero && _displayTime != Duration.zero) {
-           WidgetsBinding.instance.addPostFrameCallback((_) {
-             if (mounted) setState(() => _displayTime = Duration.zero);
-           });
-        }
-
-        // Check if display timer needs starting/stopping
-        final bool shouldTimerRun = !gameProvider.isPaused && !gameProvider.isCompleted;
-        if (shouldTimerRun && !(_displayTimer?.isActive ?? false)) {
-           // If timer should run but isn't, sync time and start it
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                 // Ensure display time catches up if paused/resumed
-                 if (_displayTime != gameProvider.elapsedTime) {
-                    setState(() => _displayTime = gameProvider.elapsedTime);
-                 }
-                 _startDisplayTimer();
-              }
-            });
-        } else if (!shouldTimerRun && (_displayTimer?.isActive ?? false)) {
-           // If timer shouldn't run but is, stop it
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-               _displayTimer?.cancel();
-               // Ensure display time matches final time on completion/pause
-                if (mounted && _displayTime != gameProvider.elapsedTime) {
+         // Sync time if it diverges significantly or on state change
+         if (_displayTime.inSeconds != gameProvider.elapsedTime.inSeconds || shouldTimerRun != (_displayTimer?.isActive ?? false)) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                 if (mounted) {
+                   // Update display time to match provider state accurately
                    setState(() => _displayTime = gameProvider.elapsedTime);
-                }
-            });
-        }
+
+                   // Start/stop the display timer based on provider state
+                   if (shouldTimerRun && !(_displayTimer?.isActive ?? false)) {
+                      _startDisplayTimer();
+                   } else if (!shouldTimerRun && (_displayTimer?.isActive ?? false)) {
+                      _displayTimer?.cancel();
+                   }
+                 }
+              });
+         }
         // --- End Sync Logic ---
 
+        // --- Build Engaging Timer UI ---
+        double progress = (_displayTime.inMilliseconds % 60000) / 60000.0; // 0.0 to 1.0 for seconds
+        Color progressColor = Theme.of(context).primaryColor;
+        Color trackColor = Theme.of(context).primaryColor.withOpacity(0.2);
+        double indicatorSize = 40.0; // Size of the circular indicator
 
-        // Display the locally managed _displayTime
-        return Row(
-          mainAxisSize: MainAxisSize.min,
+        return Stack(
+          alignment: Alignment.center,
           children: [
-            Icon(Icons.timer_outlined, size: 20, color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.8)),
-            const SizedBox(width: 4),
+            // Circular Progress Indicator background track
+            SizedBox(
+              width: indicatorSize,
+              height: indicatorSize,
+              child: CircularProgressIndicator(
+                value: 1.0, // Full circle track
+                strokeWidth: 3.0, // Thickness of track
+                valueColor: AlwaysStoppedAnimation<Color>(trackColor),
+              ),
+            ),
+            // Circular Progress Indicator foreground progress
+             SizedBox(
+              width: indicatorSize,
+              height: indicatorSize,
+              child: Transform( // Rotate to start from top
+                 alignment: Alignment.center,
+                 transform: Matrix4.rotationZ(-pi / 2),
+                 child: CircularProgressIndicator(
+                   value: progress,
+                   strokeWidth: 3.5, // Slightly thicker progress line
+                   valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+                   // Optional: Add strokeCap for rounded ends
+                   // strokeCap: StrokeCap.round,
+                 ),
+               ),
+             ),
+            // Display the time text in the center
             Text(
-              _formatDuration(_displayTime), // Use local state variable
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontFeatures: [const FontFeature.tabularFigures()],
+              _formatDuration(_displayTime),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith( // Smaller font inside circle
+                fontWeight: FontWeight.w600,
+                fontFeatures: [const ui.FontFeature.tabularFigures()], // Consistent number width
+                 color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.9),
               ),
             ),
           ],

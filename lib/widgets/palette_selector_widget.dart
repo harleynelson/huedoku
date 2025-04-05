@@ -1,6 +1,8 @@
 // File: lib/widgets/palette_selector_widget.dart
 // Location: ./lib/widgets/palette_selector_widget.dart
 
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:huedoku/models/color_palette.dart'; // Needed for CellOverlay enum
 import 'package:huedoku/providers/game_provider.dart';
@@ -27,106 +29,125 @@ class PaletteSelectorWidget extends StatelessWidget {
         final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
         // Define base styles for the circle container
-        const double circleSize = 38.0;
-        final Color defaultBorderColor = Colors.black.withOpacity(0.2);
-        final Color selectedBorderColor = isDarkMode ? Colors.tealAccent[100]!.withOpacity(0.8) : Colors.teal[300]!;
-        const double defaultBorderWidth = 1.5;
-        const double selectedBorderWidth = 3.0;
+        const double circleSize = 40.0; // Slightly larger circles
+        final Color defaultBorderColor = Colors.black.withOpacity(0.15);
+        final Color selectedBorderColor = Theme.of(context).primaryColorLight.withOpacity(0.9); // Lighter selection border
+        const double defaultBorderWidth = 1.0; // Thinner default border
+        const double selectedBorderWidth = 3.5; // Thicker selection border
         final circleBoxShadow = [
-           BoxShadow( color: Colors.black.withOpacity(0.15), blurRadius: 2, offset: const Offset(1, 1))
+           BoxShadow( color: Colors.black.withOpacity(0.2), blurRadius: 3, offset: const Offset(1, 2)) // Slightly stronger shadow
         ];
 
+        // Glass effect background for the Wrap container
+        final Color glassBackgroundColor = (isDarkMode ? Colors.black : Colors.white).withOpacity(0.20); // More transparent
+        final Color glassBorderColor = (isDarkMode ? Colors.white : Colors.black).withOpacity(0.25);
+        const double paletteContainerCornerRadius = 16.0; // Consistent radius
 
-        return Container(
-          padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor.withOpacity(0.6),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 8.0,
-            runSpacing: 6.0,
-            children: List.generate(9, (index) {
-              final Color circleBackgroundColor = currentPalette[index]; // Use palette color as background
+        return ClipRRect( // Apply clipping for glass effect
+          borderRadius: BorderRadius.circular(paletteContainerCornerRadius),
+          child: BackdropFilter( // Apply blur effect
+            filter: ui.ImageFilter.blur(sigmaX: 6.0, sigmaY: 6.0),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 8.0), // Adjust padding
+              decoration: BoxDecoration(
+                color: glassBackgroundColor, // Semi-transparent background
+                borderRadius: BorderRadius.circular(paletteContainerCornerRadius),
+                border: Border.all(color: glassBorderColor, width: 0.5),
+              ),
+              child: Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 10.0, // Increased spacing
+                runSpacing: 8.0, // Increased run spacing
+                children: List.generate(9, (index) {
+                  final Color circleBackgroundColor = currentPalette[index]; // Use palette color as background
 
-              // --- Calculate contrasting overlay color ---
-              final Color overlayContentColor =
-                  ThemeData.estimateBrightnessForColor(circleBackgroundColor) == Brightness.dark
-                      ? Colors.white.withOpacity(0.9) // Slightly more opaque white
-                      : Colors.black.withOpacity(0.9); // Slightly more opaque black
+                  // --- Calculate contrasting overlay color ---
+                  final Color overlayContentColor =
+                      ThemeData.estimateBrightnessForColor(circleBackgroundColor) == Brightness.dark
+                          ? Colors.white.withOpacity(0.95) // More opaque white
+                          : Colors.black.withOpacity(0.95); // More opaque black
 
-              // Define styles for numbers using the contrast color
-               final TextStyle numberStyle = TextStyle(
-                   fontSize: 16,
-                   fontWeight: FontWeight.bold,
-                   color: overlayContentColor,
-                    shadows: [ // Add subtle shadow like in cell widget
-                     Shadow(blurRadius: 1.0, color: Colors.black.withOpacity(0.25), offset: const Offset(0.5, 0.5)),
-                   ],
-               );
+                  // Define styles for numbers using the contrast color
+                   final TextStyle numberStyle = TextStyle(
+                       fontSize: 17, // Slightly larger font
+                       fontWeight: FontWeight.bold,
+                       color: overlayContentColor,
+                        shadows: [ // Add subtle shadow like in cell widget
+                         Shadow(blurRadius: 1.5, color: Colors.black.withOpacity(0.3), offset: const Offset(0.5, 1)),
+                       ],
+                   );
 
 
-              // Determine if this index is the selected one
-              bool isSelectedColor = false;
-              if (!gameProvider.isCompleted && gameProvider.selectedRow != null && gameProvider.selectedCol != null) {
-                  final cell = gameProvider.board[gameProvider.selectedRow!][gameProvider.selectedCol!];
-                   if (!isEditingCandidates && cell.value == index) isSelectedColor = true;
-                   else if (isEditingCandidates && cell.candidates.contains(index)) isSelectedColor = true;
-              }
-
-              // --- Determine Child Widget based on Overlay Setting ---
-              Widget childWidget;
-
-              switch(currentOverlay) {
-                 case CellOverlay.numbers:
-                    childWidget = Center(
-                        child: Text('${index + 1}', style: numberStyle),
-                    );
-                    break;
-                 case CellOverlay.patterns:
-                     childWidget = CustomPaint(
-                         painter: PatternPainter(
-                            patternIndex: index,
-                            // Use the calculated contrasting color
-                            color: overlayContentColor,
-                            strokeWidthMultiplier: 0.12, // Adjusted for smaller circles
-                         ),
-                         child: Container(), // Needed for CustomPaint to size correctly
-                     );
-                     break;
-                 case CellOverlay.none:
-                 default:
-                    childWidget = const SizedBox.shrink(); // No child needed for color only
-                    break;
-              }
-
-              return GestureDetector(
-                onTap: () {
-                  if (!gameProvider.isCompleted) {
-                      gameProvider.placeValue( index, showErrors: settingsProvider.showErrors );
+                  // Determine if this index is the selected one
+                  bool isSelectedColor = false;
+                  if (!gameProvider.isCompleted && gameProvider.selectedRow != null && gameProvider.selectedCol != null) {
+                      final cell = gameProvider.board[gameProvider.selectedRow!][gameProvider.selectedCol!];
+                       // Check based on edit mode and cell state
+                       if (isEditingCandidates) {
+                           isSelectedColor = cell.candidates.contains(index);
+                       } else {
+                           isSelectedColor = cell.value == index;
+                       }
                   }
-                },
-                child: Container(
-                  width: circleSize,
-                  height: circleSize,
-                  clipBehavior: Clip.antiAlias, // Use antiAlias for smoother circle clip
-                  decoration: BoxDecoration(
-                    // Background is ALWAYS the palette color now
-                    color: circleBackgroundColor,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isSelectedColor ? selectedBorderColor : defaultBorderColor,
-                      width: isSelectedColor ? selectedBorderWidth : defaultBorderWidth,
+
+                  // --- Determine Child Widget based on Overlay Setting ---
+                  Widget childWidget;
+
+                  switch(currentOverlay) {
+                     case CellOverlay.numbers:
+                        childWidget = Center(
+                            child: Text('${index + 1}', style: numberStyle),
+                        );
+                        break;
+                     case CellOverlay.patterns:
+                         childWidget = CustomPaint(
+                             painter: PatternPainter(
+                                patternIndex: index,
+                                // Use the calculated contrasting color
+                                color: overlayContentColor,
+                                strokeWidthMultiplier: 0.13, // Slightly thicker pattern
+                             ),
+                             child: Container(), // Needed for CustomPaint to size correctly
+                         );
+                         break;
+                     case CellOverlay.none:
+                     default:
+                        childWidget = const SizedBox.shrink(); // No child needed for color only
+                        break;
+                  }
+
+                  // Use a common transition duration
+                  const Duration transitionDuration = Duration(milliseconds: 150);
+
+                  return GestureDetector(
+                    onTap: () {
+                      if (!gameProvider.isCompleted) {
+                          gameProvider.placeValue( index, showErrors: settingsProvider.showErrors );
+                      }
+                    },
+                    child: AnimatedContainer( // Animate the border change
+                      duration: transitionDuration,
+                      width: circleSize,
+                      height: circleSize,
+                      clipBehavior: Clip.antiAlias, // Use antiAlias for smoother circle clip
+                      decoration: BoxDecoration(
+                        // Background is ALWAYS the palette color now
+                        color: circleBackgroundColor,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isSelectedColor ? selectedBorderColor : defaultBorderColor,
+                          width: isSelectedColor ? selectedBorderWidth : defaultBorderWidth,
+                        ),
+                        boxShadow: circleBoxShadow,
+                      ),
+                      // Add the conditional child (Number, Pattern, or Empty)
+                      // Use Center to ensure painter/text is centered if it doesn't fill
+                      child: Center(child: childWidget),
                     ),
-                    boxShadow: circleBoxShadow,
-                  ),
-                  // Add the conditional child (Number, Pattern, or Empty)
-                  // Use Center to ensure painter/text is centered if it doesn't fill
-                  child: Center(child: childWidget),
-                ),
-              );
-            }),
+                  );
+                }),
+              ),
+            ),
           ),
         );
       },

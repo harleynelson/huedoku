@@ -20,140 +20,151 @@ class SudokuCellWidget extends StatelessWidget {
     required this.col,
   });
 
+    // File: lib/widgets/sudoku_cell_widget.dart
+  // Location: build method
+
   @override
-  Widget build(BuildContext context) {
-    // Use Consumer widgets to get specific providers and rebuild efficiently
-    return Consumer2<GameProvider, SettingsProvider>(
-      builder: (context, gameProvider, settingsProvider, child) {
-        // --- Get data using providers ---
-        final SudokuCellData cellData = gameProvider.board[row][col];
-        final bool isSelected = gameProvider.selectedRow == row && gameProvider.selectedCol == col;
-        // --- Get palette directly from SettingsProvider ---
-        final Color? cellColorValue = cellData.getColor(settingsProvider.selectedPalette.colors);
-        final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    @override
+    Widget build(BuildContext context) {
+      // Use Consumer widgets to get specific providers and rebuild efficiently
+      return Consumer2<GameProvider, SettingsProvider>(
+        builder: (context, gameProvider, settingsProvider, child) {
+          // --- Get data using providers ---
+          final SudokuCellData cellData = gameProvider.board[row][col];
+          final bool isSelected = gameProvider.selectedRow == row && gameProvider.selectedCol == col;
+          // --- Get palette directly from SettingsProvider ---
+          final Color? cellColorValue = cellData.getColor(settingsProvider.selectedPalette.colors);
+          final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
+           final currentTheme = Theme.of(context); // Get theme
 
-        // Determine background color and border for selection/peers/fixed
-        Color tileBackgroundColor = Colors.transparent;
-        Color borderColor = Colors.transparent;
-        double borderWidth = 0.0;
-        double elevation = 0.0;
+          // Determine background color and border for selection/peers/fixed
+          Color tileBackgroundColor = Colors.transparent; // Base background
+          Color borderColor = Colors.transparent;
+          double borderWidth = 0.0;
+          double elevation = 0.0; // Keep track for potential shadow animation
 
-         bool highlightPeer = false;
-         // Use settingsProvider.highlightPeers directly
-         if (settingsProvider.highlightPeers && gameProvider.selectedRow != null && !(isSelected)) {
-            if (gameProvider.selectedRow == row || gameProvider.selectedCol == col ||
-               (gameProvider.selectedRow! ~/ 3 == row ~/ 3 && gameProvider.selectedCol! ~/ 3 == col ~/ 3)) {
-                  highlightPeer = true;
-                  tileBackgroundColor = Theme.of(context).focusColor.withOpacity(0.2);
-               }
-         }
+          bool highlightPeer = false;
+           // Use settingsProvider.highlightPeers directly
+           if (settingsProvider.highlightPeers && gameProvider.selectedRow != null && !(isSelected)) {
+              if (gameProvider.selectedRow == row || gameProvider.selectedCol == col ||
+                 (gameProvider.selectedRow! ~/ 3 == row ~/ 3 && gameProvider.selectedCol! ~/ 3 == col ~/ 3)) {
+                    highlightPeer = true;
+                    // --- Set Highlight Peers Alpha to 0.3 ---
+                    tileBackgroundColor = currentTheme.focusColor.withOpacity(0.1); // EXACTLY 0.3 opacity
+                 }
+           }
 
-        if (isSelected) {
-          // Use primary color variation for selection border
-          borderColor = Theme.of(context).primaryColor.withOpacity(0.8);
-          borderWidth = 2.5;
-          elevation = 2.0; // Slightly raise selected cell
-        } else if (cellData.isFixed) {
-            // Subtle background for fixed cells
-            tileBackgroundColor = (isDarkMode ? Colors.grey[800]! : Colors.grey[200]!).withOpacity(0.7);
-        }
+          if (isSelected) {
+            // Use primary color variation for selection border
+             borderColor = currentTheme.colorScheme.primary.withOpacity(0.9); // Use theme color
+            borderWidth = 3.0; // Thicker border
+            elevation = 3.0; // Slightly raise selected cell more
+          } else if (cellData.isFixed && cellColorValue == null) { // Only apply fixed background if cell is empty
+              // Subtle background for fixed cells (use theme color)
+              tileBackgroundColor = currentTheme.colorScheme.onSurface.withOpacity(0.08);
+          }
 
-        // If cell has a color value, use it as the main background
-        final Color mainFillColor = cellColorValue ?? tileBackgroundColor;
-
-        // Determine overlay color based on the brightness of the fill color
-        final Color overlayColor = ThemeData.estimateBrightnessForColor(mainFillColor) == Brightness.dark
-                                    ? Colors.white.withOpacity(0.85)
-                                    : Colors.black.withOpacity(0.8);
-
-        TextStyle overlayStyle = TextStyle(
-          fontSize: 18, // Adjust as needed
-          fontWeight: cellData.isFixed ? FontWeight.bold : FontWeight.normal,
-          color: overlayColor,
-           shadows: [ // Subtle shadow for better readability on varied backgrounds
-            Shadow(blurRadius: 1.0, color: Colors.black.withOpacity(0.2), offset: const Offset(0.5, 0.5)),
-          ],
-        );
-
-         // --- Define Tile Decoration ---
-         BoxDecoration tileDecoration = BoxDecoration(
-             color: mainFillColor,
-             borderRadius: BorderRadius.circular(6.0), // Rounded corners
-             border: Border.all(color: borderColor, width: borderWidth),
-              boxShadow: kElevationToShadow[elevation.toInt()] // Use standard elevation shadows
-         );
+          // --- Apply Alpha Channel to Cell Color ---
+          // If cell has a color value, use it with opacity, otherwise use the calculated tile background
+          final Color mainFillColor = cellColorValue != null
+                                      ? cellColorValue.withOpacity(0.92) // Apply 92% opacity to placed colors
+                                      : tileBackgroundColor;
 
 
-        return GestureDetector(
-          onTap: () {
-             // Prevent interaction if game is completed
-            if (!gameProvider.isCompleted) {
-               gameProvider.selectCell(row, col);
-            }
-          },
-          child: AnimatedContainer( // Animate background color and decoration changes
-            duration: const Duration(milliseconds: 180),
-             margin: const EdgeInsets.all(1.5), // Add margin to create space between tiles visually
-             decoration: tileDecoration,
-             clipBehavior: Clip.antiAlias, // Clip children (like painter) to rounded corners
-             // --- REMOVED FittedBox ---
-             child: Stack( // Stack directly inside AnimatedContainer
-                alignment: Alignment.center,
-                children: [
-                  // 1. Main content area is now handled by the container's background color
+          // Determine overlay color based on the brightness of the fill color
+          // If mainFillColor is transparent, base decision on theme background
+          final Color effectiveBgForOverlay = mainFillColor == Colors.transparent
+                                                ? currentTheme.scaffoldBackgroundColor
+                                                : mainFillColor;
+          final Color overlayColor = ThemeData.estimateBrightnessForColor(effectiveBgForOverlay) == Brightness.dark
+                                      ? Colors.white.withOpacity(0.9)
+                                      : Colors.black.withOpacity(0.9);
 
-                  // 2. Candidate display
-                  if (cellData.value == null && cellData.candidates.isNotEmpty)
-                    _buildCandidatesWidget(context, cellData.candidates, settingsProvider.selectedPalette.colors, tileBackgroundColor),
+          TextStyle overlayStyle = TextStyle(
+            fontSize: 18,
+            fontWeight: cellData.isFixed ? FontWeight.bold : FontWeight.normal,
+            color: overlayColor,
+             shadows: [
+              Shadow(blurRadius: 1.5, color: Colors.black.withOpacity(0.3), offset: const Offset(0.5, 1.0)),
+            ],
+          );
 
-                  // 3. Overlay (Numbers or Patterns)
-                  if (cellData.value != null && settingsProvider.cellOverlay != CellOverlay.none)
-                     LayoutBuilder( // LayoutBuilder gets constraints directly from Stack (sized by AnimatedContainer)
-                       builder: (context, constraints) {
-                         final size = Size(constraints.maxWidth, constraints.maxHeight);
-
-                         // Ensure size is valid before building overlay
-                         if (size.width <= 0 || size.height <= 0) {
-                           return const SizedBox.shrink(); // Return empty if no size
-                         }
-
-                         // Log only once per state change maybe? Removing for now.
-                         // if(settingsProvider.cellOverlay == CellOverlay.patterns) {
-                         //    print("Cell ($row, $col): Drawing PATTERN overlay. Value=${cellData.value}, Size=$size");
-                         // }
-
-                         return _buildOverlayWidget(
-                           context,
-                           settingsProvider.cellOverlay, // Use setting directly
-                           cellData.value!,
-                           overlayStyle,
-                           overlayColor,
-                           size, // Pass the calculated size
-                         );
-                       }
-                     ),
+           // --- Define Tile Decoration ---
+           const double cellCornerRadius = 6.0;
+           BoxDecoration tileDecoration = BoxDecoration(
+               borderRadius: BorderRadius.circular(cellCornerRadius),
+               border: Border.all(color: borderColor, width: borderWidth),
+           );
 
 
-                  // 4. Error Indicator
-                  // --- Use settingsProvider.showErrors directly ---
-                   if (cellData.hasError && settingsProvider.showErrors)
-                     Positioned.fill( // Use Positioned.fill to draw border inside the rounded corners
-                        child: Container(
-                            margin: const EdgeInsets.all(0.5), // Slight inset for the error border
-                           decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(5.0), // Match parent rounding slightly reduced
-                              border: Border.all(color: Colors.redAccent.withOpacity(0.8), width: 2.0)
-                           ),
-                        ),
-                    )
-                ],
-              ),
-             // --- End REMOVED FittedBox ---
-          ),
-        );
-      },
-    );
-  }
+          // Use InkWell instead of GestureDetector
+          return InkWell(
+            onTap: () {
+              if (!gameProvider.isCompleted) {
+                 gameProvider.selectCell(row, col);
+              }
+            },
+            splashColor: overlayColor.withOpacity(0.2),
+            highlightColor: overlayColor.withOpacity(0.1),
+            customBorder: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(cellCornerRadius),
+            ),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+               margin: const EdgeInsets.all(1.0),
+               decoration: tileDecoration.copyWith(color: mainFillColor), // Apply color here
+               clipBehavior: Clip.antiAlias,
+               child: Material(
+                  elevation: elevation,
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(cellCornerRadius),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // Candidate display
+                      if (cellData.value == null && cellData.candidates.isNotEmpty)
+                        _buildCandidatesWidget(context, cellData.candidates, settingsProvider.selectedPalette.colors, mainFillColor),
+
+                      // Overlay (Numbers or Patterns)
+                      if (cellData.value != null && settingsProvider.cellOverlay != CellOverlay.none)
+                         LayoutBuilder(
+                           builder: (context, constraints) {
+                             final size = Size(constraints.maxWidth, constraints.maxHeight);
+                             if (size.width <= 0 || size.height <= 0) {
+                               return const SizedBox.shrink();
+                             }
+                             return _buildOverlayWidget(
+                               context,
+                               settingsProvider.cellOverlay,
+                               cellData.value!,
+                               overlayStyle,
+                               overlayColor,
+                               size,
+                             );
+                           }
+                         ),
+
+
+                      // Error Indicator
+                       if (cellData.hasError && settingsProvider.showErrors)
+                         Positioned.fill(
+                            child: IgnorePointer(
+                              child: Container(
+                               decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(cellCornerRadius - 1.0),
+                                   border: Border.all(color: currentTheme.colorScheme.error.withOpacity(0.9), width: 2.5)
+                               ),
+                              ),
+                            ),
+                        )
+                    ],
+                  ),
+               ),
+            ),
+          );
+        },
+      );
+    }
 
   // Helper to build the candidates display
   Widget _buildCandidatesWidget(BuildContext context, Set<int> candidates, List<Color> palette, Color tileBgColor) {

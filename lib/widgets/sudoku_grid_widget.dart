@@ -15,61 +15,82 @@ class SudokuGridWidget extends StatelessWidget {
     return Consumer<GameProvider>(
       builder: (context, gameProvider, child) {
         if (!gameProvider.isPuzzleLoaded) {
-          return const Center(child: Text("Loading puzzle...")); // Or a progress indicator
+          return const Center(child: CircularProgressIndicator()); // Show progress indicator while loading
         }
 
-        // Determine border thickness for subgrids
-        BorderSide thickBorder = BorderSide(
-          color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[600]! : Colors.black54,
-          width: 1.5,
+        // Get current theme for line colors
+        final currentTheme = Theme.of(context);
+        final Color lineColor = currentTheme.colorScheme.onSurface; // Base color from theme
+
+        // --- Define Subtle Border Styles ---
+        // Further reduced thick border width to minimize perceived differences
+        final BorderSide thickBorder = BorderSide(
+          color: lineColor.withOpacity(0.25),
+          width: 1.0, // Reduced width to 1.0
         );
-        BorderSide thinBorder = BorderSide(
-          color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[700]! : Colors.black26,
-          width: 0.5,
+        final BorderSide thinBorder = BorderSide(
+          color: lineColor.withOpacity(0.12),
+          width: 0.6,
         );
+        const BorderSide noBorder = BorderSide.none;
+
+        // --- Outer Grid Border ---
+        final Color outerBorderColor = lineColor.withOpacity(0.35);
+        final double outerBorderWidth = 1.5;
+        final double gridCornerRadius = 8.0;
 
         return Container(
+          padding: const EdgeInsets.all(2.0),
           decoration: BoxDecoration(
-            border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[500]! : Colors.black, width: 2.0),
-            borderRadius: BorderRadius.circular(8), // Optional: rounded corners for the whole grid
+            border: Border.all(color: outerBorderColor, width: outerBorderWidth),
+            borderRadius: BorderRadius.circular(gridCornerRadius),
           ),
-          child: GridView.builder(
-            padding: EdgeInsets.zero, // Remove default padding
-            physics: const NeverScrollableScrollPhysics(), // Grid shouldn't scroll independently
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 9, // 9 cells horizontally
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(gridCornerRadius - 2.0),
+            child: GridView.builder(
+              padding: EdgeInsets.zero,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 9,
+              ),
+              itemCount: 81,
+              itemBuilder: (context, index) {
+                int row = index ~/ 9;
+                int col = index % 9;
+
+                // --- Corrected Border Logic ---
+                final BorderSide topSide = (row == 0)
+                    ? noBorder
+                    : (row % 3 == 0) ? thickBorder : thinBorder;
+
+                final BorderSide leftSide = (col == 0)
+                    ? noBorder
+                    : (col % 3 == 0) ? thickBorder : thinBorder;
+
+                final BorderSide rightSide = (col == 8)
+                    ? noBorder
+                    // Apply thick border condition to the *left* edge of the *next* column (col+1)
+                    : ((col + 1) % 3 == 0) ? thickBorder : thinBorder;
+
+                final BorderSide bottomSide = (row == 8)
+                    ? noBorder
+                    // Apply thick border condition to the *top* edge of the *next* row (row+1)
+                    : ((row + 1) % 3 == 0) ? thickBorder : thinBorder;
+
+                // Construct the Border object
+                final Border cellBorder = Border(
+                  top: topSide,
+                  left: leftSide,
+                  right: rightSide,
+                  bottom: bottomSide,
+                );
+
+                return Container(
+                  decoration: BoxDecoration(border: cellBorder),
+                  child: SudokuCellWidget(row: row, col: col),
+                );
+              },
             ),
-            itemCount: 81, // 9x9 grid
-            itemBuilder: (context, index) {
-              int row = index ~/ 9;
-              int col = index % 9;
-
-              // Determine borders for the 3x3 subgrids
-              Border cellBorder = Border(
-                top: row % 3 == 0 ? thickBorder : thinBorder,
-                left: col % 3 == 0 ? thickBorder : thinBorder,
-                right: col == 8 ? thickBorder : thinBorder, // Thick on outer edges
-                bottom: row == 8 ? thickBorder : thinBorder, // Thick on outer edges
-              );
-
-              // Special handling for internal thick borders
-              if (row % 3 == 2 && row != 8) { // bottom edge of a subgrid row (not the last row)
-                 cellBorder = Border(
-                    top: thinBorder, left: cellBorder.left, right: cellBorder.right,
-                    bottom: thickBorder);
-              }
-               if (col % 3 == 2 && col != 8) { // right edge of a subgrid col (not the last col)
-                 cellBorder = Border(
-                   top: cellBorder.top, bottom: cellBorder.bottom, left: thinBorder,
-                   right: thickBorder);
-              }
-
-
-              return Container(
-                decoration: BoxDecoration(border: cellBorder),
-                child: SudokuCellWidget(row: row, col: col),
-              );
-            },
           ),
         );
       },
