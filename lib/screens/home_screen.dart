@@ -113,7 +113,7 @@ class _HomeScreenState extends State<HomeScreen> {
          case 1: return Icons.beach_access; // Medium
          case 2: return Icons.local_fire_department_outlined; // Hard
          // Ensure this matches the label change in GameProvider if needed
-         case 3: return Icons.whatshot; // Icon for "Pain" (Expert)
+         case 3: return Icons.volcano; // Icon for "Pain" (Expert)
          default: return Icons.question_mark;
       }
   }
