@@ -113,6 +113,10 @@ class SettingsContent extends StatelessWidget {
                          return SimpleDialogOption( onPressed: () { Navigator.pop(context, overlay); }, child: Text(_cellOverlayDescription(overlay), style: GoogleFonts.nunito()), ); }).toList(), ); } );
                  if (selected != null) { Provider.of<SettingsProvider>(context, listen: false).setCellOverlay(selected); } },
            ),
+           // --- Accessibility Note (Unchanged) ---
+          Text('Consider using "Patterns" or "Numbers" cell content, or the "Accessible Vibrant" palette if you are colorblind AF.',
+             style: GoogleFonts.nunito( textStyle: currentTheme.textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic), color: currentTheme.colorScheme.onSurface.withOpacity(0.7), ), ),
+           const SizedBox(height: 20),
           SwitchListTile( /* ... Highlight Peers ... */
              contentPadding: EdgeInsets.zero, title: Text('Highlight Peers', style: GoogleFonts.nunito(textStyle: currentTheme.textTheme.titleMedium)),
              subtitle: Text('Highlight row, column, and box', style: GoogleFonts.nunito(textStyle: currentTheme.textTheme.bodySmall)),
@@ -139,11 +143,7 @@ class SettingsContent extends StatelessWidget {
              activeColor: currentTheme.colorScheme.primary, ),
           const SizedBox(height: 20),
 
-          // --- Accessibility Note (Unchanged) ---
-          Text('Accessibility', style: GoogleFonts.nunito( textStyle: currentTheme.textTheme.titleMedium, fontWeight: FontWeight.bold) ),
-          Text('Consider using "Patterns" or "Numbers" cell content, or the "Accessible Vibrant" palette if you have difficulty distinguishing colors.',
-             style: GoogleFonts.nunito( textStyle: currentTheme.textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic), color: currentTheme.colorScheme.onSurface.withOpacity(0.7), ), ),
-           const SizedBox(height: 20),
+          
         ],
       ),
     );
