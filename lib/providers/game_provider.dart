@@ -215,6 +215,43 @@ class GameProvider extends ChangeNotifier {
        for(int r=0;r<9;r++){for(int c=0;c<9;c++){if(_board[r][c].value==null||_board[r][c].value!=_solutionBoard[r][c])return false;if(_board[r][c].hasError)return false;}} return true;
    }
 
+   // --- Hint Logic ---
+  // Provides the correct value for the selected empty cell
+  // Returns true if hint was successfully provided, false otherwise
+  bool provideHint({required bool showErrors}) {
+    if (_selectedRow != null && _selectedCol != null && !_isCompleted) {
+      final cell = _board[_selectedRow!][_selectedCol!];
+
+      // Provide hint only if the cell is empty and not fixed
+      if (!cell.isFixed && cell.value == null) {
+        int? solutionValue = _solutionBoard[_selectedRow!][_selectedCol!];
+
+        if (solutionValue != null) {
+          _saveStateToHistory(); // Save state before applying hint
+
+          cell.value = solutionValue;
+          cell.candidates.clear(); // Clear candidates after hint
+          cell.isHint = true; // Mark cell as hinted
+
+          updateBoardErrors(showErrors); // Re-validate board
+
+          // Check for completion after hint
+          if (_isBoardCompleteAndCorrect()) {
+              _isCompleted = true;
+              stopTimer();
+              if (kDebugMode) print("Game Completed via Hint!");
+          } else {
+             _isCompleted = false;
+          }
+
+          notifyListeners(); // Notify UI about the change
+          return true; // Hint provided
+        }
+      }
+    }
+    return false; // Hint could not be provided (no selection, cell not empty, etc.)
+  }
+
   // --- Cell Interaction ---
   void selectCell(int row, int col) {
       // (Implementation remains the same)

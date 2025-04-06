@@ -24,7 +24,6 @@ class SudokuCellWidget extends StatelessWidget {
   // Location: build method
 
   @override
-    @override
     Widget build(BuildContext context) {
       // Use Consumer widgets to get specific providers and rebuild efficiently
       return Consumer2<GameProvider, SettingsProvider>(
@@ -43,14 +42,23 @@ class SudokuCellWidget extends StatelessWidget {
           double borderWidth = 0.0;
           double elevation = 0.0; // Keep track for potential shadow animation
 
+          // --- Hint Background Modifier ---
+          Color hintOverlayColor = Colors.transparent;
+          if (cellData.isHint) { // Check if cell was hinted
+              // Apply a subtle overlay/tint for hinted cells
+              hintOverlayColor = currentTheme.colorScheme.tertiaryContainer?.withOpacity(0.2) ?? currentTheme.focusColor.withOpacity(0.15);
+          }
+          // --- End Hint Background Modifier ---
+
+
           bool highlightPeer = false;
            // Use settingsProvider.highlightPeers directly
            if (settingsProvider.highlightPeers && gameProvider.selectedRow != null && !(isSelected)) {
               if (gameProvider.selectedRow == row || gameProvider.selectedCol == col ||
                  (gameProvider.selectedRow! ~/ 3 == row ~/ 3 && gameProvider.selectedCol! ~/ 3 == col ~/ 3)) {
                     highlightPeer = true;
-                    // --- Set Highlight Peers Alpha to 0.3 ---
-                    tileBackgroundColor = currentTheme.focusColor.withOpacity(0.1); // EXACTLY 0.1 opacity
+                    // Use theme focus color for highlight
+                    tileBackgroundColor = currentTheme.focusColor.withOpacity(0.05); // 0.05 opacity
                  }
            }
 
@@ -64,75 +72,91 @@ class SudokuCellWidget extends StatelessWidget {
               tileBackgroundColor = currentTheme.colorScheme.onSurface.withOpacity(0.08);
           }
 
-          // --- Apply Alpha Channel to Cell Color ---
-          // If cell has a color value, use it with opacity, otherwise use the calculated tile background
-          final Color mainFillColor = cellColorValue != null
+          // --- Apply Alpha Channel & Hint Overlay ---
+          // Apply hint overlay *over* the potential cell color/background
+          final Color baseFillColor = cellColorValue != null
                                       ? cellColorValue.withOpacity(0.92) // Apply 92% opacity to placed colors
                                       : tileBackgroundColor;
+          // Final color includes hint overlay if applicable
+          final Color mainFillColor = cellData.isHint ? hintOverlayColor : baseFillColor;
 
 
-          // Determine overlay color based on the brightness of the fill color
-          // If mainFillColor is transparent, base decision on theme background
-          final Color effectiveBgForOverlay = mainFillColor == Colors.transparent
-                                                ? currentTheme.scaffoldBackgroundColor
-                                                : mainFillColor;
+          // Determine overlay color based on the brightness of the effective background
+          // Base decision on original intended bg before hint overlay
+          final Color effectiveBgForOverlay = cellColorValue ?? tileBackgroundColor;
           final Color overlayColor = ThemeData.estimateBrightnessForColor(effectiveBgForOverlay) == Brightness.dark
                                       ? Colors.white.withOpacity(0.9)
                                       : Colors.black.withOpacity(0.9);
 
           TextStyle overlayStyle = TextStyle(
-            fontSize: 18,
+            fontSize: 18, // Adjust as needed
+             // Fixed cells with value still show bold number/pattern
             fontWeight: cellData.isFixed ? FontWeight.bold : FontWeight.normal,
             color: overlayColor,
-             shadows: [
+             shadows: [ // Subtle shadow for better readability on varied backgrounds
               Shadow(blurRadius: 1.5, color: Colors.black.withOpacity(0.3), offset: const Offset(0.5, 1.0)),
             ],
           );
 
            // --- Define Tile Decoration ---
-           const double cellCornerRadius = 6.0;
+           const double cellCornerRadius = 6.0; // Slightly smaller radius for cells?
            BoxDecoration tileDecoration = BoxDecoration(
-               borderRadius: BorderRadius.circular(cellCornerRadius),
+               // Color applied to the container within InkWell now
+               // color: mainFillColor,
+               borderRadius: BorderRadius.circular(cellCornerRadius), // Consistent rounded corners
                border: Border.all(color: borderColor, width: borderWidth),
+                // Apply shadow directly if needed, or rely on Material elevation
+                // boxShadow: kElevationToShadow[elevation.toInt()]
            );
 
 
           // Use InkWell instead of GestureDetector
           return InkWell(
             onTap: () {
+               // Prevent interaction if game is completed
               if (!gameProvider.isCompleted) {
                  gameProvider.selectCell(row, col);
               }
             },
+            // Customize splash/highlight for better feedback with colors
             splashColor: overlayColor.withOpacity(0.2),
             highlightColor: overlayColor.withOpacity(0.1),
-            customBorder: RoundedRectangleBorder(
+            customBorder: RoundedRectangleBorder( // Ensure ripple conforms to border
                 borderRadius: BorderRadius.circular(cellCornerRadius),
             ),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-               margin: const EdgeInsets.all(1.0),
+            child: AnimatedContainer( // Animate background color and decoration changes
+              duration: const Duration(milliseconds: 150), // Slightly faster animation
+               margin: const EdgeInsets.all(1.0), // Reduced margin for tighter grid lines
+               // Apply mainFillColor (which includes hint overlay logic) to decoration
                decoration: tileDecoration.copyWith(color: mainFillColor), // Apply color here
-               clipBehavior: Clip.antiAlias,
-               child: Material(
+               clipBehavior: Clip.antiAlias, // Clip children (like painter) to rounded corners
+               child: Material( // Use Material for potential elevation effect
                   elevation: elevation,
-                  color: Colors.transparent,
+                  color: Colors.transparent, // Material is just for elevation/shadow
                   borderRadius: BorderRadius.circular(cellCornerRadius),
-                  child: Stack(
+                  child: Stack( // Stack directly inside Material/AnimatedContainer
                     alignment: Alignment.center,
                     children: [
-                      // Candidate display
-                      if (cellData.value == null && cellData.candidates.isNotEmpty)
-                        _buildCandidatesWidget(context, cellData.candidates, settingsProvider.selectedPalette.colors, mainFillColor),
+                       // --- Draw original color underneath hint overlay ---
+                       // This ensures the actual color is still visible below the tint
+                       if(cellData.isHint && cellColorValue != null)
+                          Container(
+                            decoration: BoxDecoration(
+                              color: cellColorValue.withOpacity(0.92), // Draw original hinted color
+                              borderRadius: BorderRadius.circular(cellCornerRadius),
+                            ),
+                          ),
 
-                      // Overlay (Numbers or Patterns)
+                      // 2. Candidate display (remains the same)
+                      if (cellData.value == null && cellData.candidates.isNotEmpty)
+                        _buildCandidatesWidget(context, cellData.candidates, settingsProvider.selectedPalette.colors, effectiveBgForOverlay),
+
+                      // 3. Overlay (Numbers or Patterns) (remains the same)
                       if (cellData.value != null && settingsProvider.cellOverlay != CellOverlay.none)
                          LayoutBuilder(
                            builder: (context, constraints) {
                              final size = Size(constraints.maxWidth, constraints.maxHeight);
-                             if (size.width <= 0 || size.height <= 0) {
-                               return const SizedBox.shrink();
-                             }
+                             if (size.width <= 0 || size.height <= 0) { return const SizedBox.shrink();}
                              return _buildOverlayWidget(
                                context,
                                settingsProvider.cellOverlay,
@@ -145,7 +169,7 @@ class SudokuCellWidget extends StatelessWidget {
                          ),
 
 
-                      // Error Indicator
+                      // 4. Error Indicator (remains the same)
                        if (cellData.hasError && settingsProvider.showErrors)
                          Positioned.fill(
                             child: IgnorePointer(

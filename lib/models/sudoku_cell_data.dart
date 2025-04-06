@@ -9,12 +9,15 @@ class SudokuCellData {
   final bool isFixed; // Was this cell part of the initial puzzle?
   Set<int> candidates; // Potential color indices (like pencil marks)
   bool hasError; // Does this cell violate Sudoku rules?
+  // --- New field ---
+  bool isHint; // Was this cell's value revealed by a hint?
 
   SudokuCellData({
     this.value,
     this.isFixed = false,
     Set<int>? candidates,
     this.hasError = false,
+    this.isHint = false, // Default to false
   }) : candidates = candidates ?? {}; // Initialize with empty set if null
 
   // Helper to get the actual color from a palette
@@ -25,13 +28,14 @@ class SudokuCellData {
     return null; // Return null if cell is empty or value is invalid
   }
 
-  // --- Added: Clone method for creating copies (useful for undo stack) ---
+  // Clone method updated to include isHint
   SudokuCellData clone() {
     return SudokuCellData(
       value: value,
       isFixed: isFixed,
       candidates: Set<int>.from(candidates), // Create a copy of the set
       hasError: hasError,
+      isHint: isHint, // Copy hint status
     );
   }
 }
