@@ -111,143 +111,63 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final settingsProvider = Provider.of<SettingsProvider>(context);
     final gameProvider = Provider.of<GameProvider>(context, listen: false);
     final currentTheme = Theme.of(context);
+    // --- Get Gradient from Theme Extension ---
+    final Gradient? backgroundGradient = Theme.of(context).extension<AppGradients>()?.backgroundGradient;
+    // Provide a fallback just in case the extension is missing
+    final defaultFallbackGradient = LinearGradient( colors: [ currentTheme.colorScheme.surface, currentTheme.colorScheme.background, ], begin: Alignment.topLeft, end: Alignment.bottomRight, );
+
 
     _updateBokehIfNeeded();
 
-    final Gradient backgroundGradient = LinearGradient(
-            colors: [
-                currentTheme.colorScheme.surface.withOpacity(0.8),
-                currentTheme.colorScheme.background,
-                currentTheme.colorScheme.surfaceVariant.withOpacity(0.7),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          );
+    // --- Removed local gradient definition ---
+    // final Gradient backgroundGradient = LinearGradient(...)
 
     return Scaffold(
       body: Stack(
         children: [
-          // Layer 1: Base Gradient
-          Container( decoration: BoxDecoration( gradient: backgroundGradient ) ),
-
-          // Layer 2: Animated Bokeh Effect
-           if (_particlesInitialized)
-             CustomPaint(
-                painter: BokehPainter(particles: _particles, animation: _bokehAnimation),
-                size: MediaQuery.of(context).size,
-             ),
-
-
-          // Layer 3: Main Content
-          Center(
-            child: SingleChildScrollView( // Allow scrolling if content overflows vertically
-              padding: const EdgeInsets.symmetric(vertical: 40.0), // Add padding for scroll
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  // --- Title ---
-                  Text(
-                    'Huedoku',
-                     style: GoogleFonts.nunito(
-                       textStyle: currentTheme.textTheme.displayMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: currentTheme.colorScheme.primary.withOpacity(0.9),
-                           shadows: [ Shadow( color: currentTheme.colorScheme.shadow.withOpacity(0.2), blurRadius: 4, offset: const Offset(1, 2) ) ]
-                       )
-                    ),
-                  ),
-                  const SizedBox(height: 30), // Space before difficulty
-
-                  // --- Vertical Difficulty Selector ---
-                  Text(
-                     "Select Difficulty",
-                      style: GoogleFonts.nunito(textStyle: currentTheme.textTheme.titleMedium)
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                     margin: const EdgeInsets.symmetric(horizontal: 40.0),
-                     padding: const EdgeInsets.symmetric(vertical: 5.0),
-                     decoration: BoxDecoration(
-                        color: currentTheme.colorScheme.surfaceVariant.withOpacity(0.3),
-                        borderRadius: BorderRadius.circular(12.0),
-                        border: Border.all(color: currentTheme.colorScheme.outline.withOpacity(0.2), width: 0.5)
-                     ),
-                     child: Column(
-                       mainAxisSize: MainAxisSize.min, // Take minimum height
-                       children: difficultyLabels.entries.map((entry) {
-                           final int difficultyKey = entry.key;
-                           final String difficultyLabel = entry.value;
-                           return RadioListTile<int>(
-                               title: Text(difficultyLabel, style: GoogleFonts.nunito()),
-                               secondary: Icon(
-                                  _getDifficultyIcon(difficultyKey),
-                                  color: _selectedDifficulty == difficultyKey
-                                        ? currentTheme.colorScheme.primary // Highlight selected icon
-                                        : currentTheme.colorScheme.onSurfaceVariant,
-                               ),
-                               value: difficultyKey,
-                               groupValue: _selectedDifficulty,
-                               onChanged: (int? value) {
-                                 if (value != null) {
-                                   setState(() {
-                                     _selectedDifficulty = value;
-                                   });
-                                 }
-                               },
-                               activeColor: currentTheme.colorScheme.primary, // Color of the radio button
-                               dense: true, // Reduce vertical height
-                               contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 0),
-                           );
-                       }).toList(),
-                     ),
-                   ),
-                   const SizedBox(height: 30), // Space after difficulty
-
-
-                  // --- Buttons ---
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.play_arrow),
-                    label: Text('New Game', style: GoogleFonts.nunito(fontSize: 18)),
-                    style: ElevatedButton.styleFrom(
-                        backgroundColor: currentTheme.colorScheme.primaryContainer,
-                        foregroundColor: currentTheme.colorScheme.onPrimaryContainer,
-                        padding: const EdgeInsets.symmetric(horizontal: 35, vertical: 18),
-                        textStyle: GoogleFonts.nunito(fontSize: 18, fontWeight: FontWeight.w600),
-                        elevation: 3,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
-                    ),
-                    onPressed: () {
-                      // Pass selected difficulty to provider
-                      gameProvider.loadNewPuzzle(difficulty: _selectedDifficulty);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const GameScreen()),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 25),
-                  ElevatedButton.icon(
-                     icon: const Icon(Icons.settings_outlined),
-                     label: Text('Settings', style: GoogleFonts.nunito(fontSize: 18)),
-                     style: ElevatedButton.styleFrom(
-                         backgroundColor: currentTheme.colorScheme.secondaryContainer,
-                         foregroundColor: currentTheme.colorScheme.onSecondaryContainer,
-                         padding: const EdgeInsets.symmetric(horizontal: 35, vertical: 18),
-                         textStyle: GoogleFonts.nunito(fontSize: 18, fontWeight: FontWeight.w600),
-                         elevation: 3,
-                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
-                     ),
-                    onPressed: () {
-                       Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const SettingsScreen()),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
+          // Layer 1: Base Gradient - Use theme gradient
+          Container(
+             decoration: BoxDecoration(
+                // Use gradient from theme, or fallback
+                gradient: backgroundGradient ?? defaultFallbackGradient
+             )
           ),
+
+          // Layer 2: Animated Bokeh Effect (unchanged)
+           if (_particlesInitialized)
+             CustomPaint( painter: BokehPainter(particles: _particles, animation: _bokehAnimation), size: MediaQuery.of(context).size, ),
+
+
+          // Layer 3: Main Content (unchanged)
+          Center( /* ... rest of content ... */
+            child: SingleChildScrollView( padding: const EdgeInsets.symmetric(vertical: 40.0),
+              child: Column( mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  Text( 'Huedoku', style: GoogleFonts.nunito( textStyle: currentTheme.textTheme.displayMedium?.copyWith( fontWeight: FontWeight.bold, color: currentTheme.colorScheme.primary.withOpacity(0.9), shadows: [ Shadow( color: currentTheme.colorScheme.shadow.withOpacity(0.2), blurRadius: 4, offset: const Offset(1, 2) ) ] ) ), ),
+                  const SizedBox(height: 30),
+                  Text( "Select Difficulty", style: GoogleFonts.nunito(textStyle: currentTheme.textTheme.titleMedium) ),
+                  const SizedBox(height: 8),
+                  Container( /* ... Difficulty Selector Container Style ... */
+                     margin: const EdgeInsets.symmetric(horizontal: 40.0), padding: const EdgeInsets.symmetric(vertical: 5.0),
+                     decoration: BoxDecoration( color: currentTheme.colorScheme.surfaceVariant.withOpacity(0.3), borderRadius: BorderRadius.circular(12.0), border: Border.all(color: currentTheme.colorScheme.outline.withOpacity(0.2), width: 0.5) ),
+                     child: Column( mainAxisSize: MainAxisSize.min,
+                       children: difficultyLabels.entries.map((entry) { /* ... RadioListTile Logic ... */
+                           final int difficultyKey = entry.key; final String difficultyLabel = entry.value;
+                           return RadioListTile<int>( title: Text(difficultyLabel, style: GoogleFonts.nunito()), secondary: Icon( _getDifficultyIcon(difficultyKey), color: _selectedDifficulty == difficultyKey ? currentTheme.colorScheme.primary : currentTheme.colorScheme.onSurfaceVariant, ),
+                               value: difficultyKey, groupValue: _selectedDifficulty, onChanged: (int? value) { if (value != null) { setState(() { _selectedDifficulty = value; }); } },
+                               activeColor: currentTheme.colorScheme.primary, dense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 0), );
+                       }).toList(), ), ),
+                   const SizedBox(height: 30),
+                  ElevatedButton.icon( /* ... New Game Button ... */
+                    icon: const Icon(Icons.play_arrow), label: Text('New Game', style: GoogleFonts.nunito(fontSize: 18)), style: ElevatedButton.styleFrom( backgroundColor: currentTheme.colorScheme.primaryContainer, foregroundColor: currentTheme.colorScheme.onPrimaryContainer, padding: const EdgeInsets.symmetric(horizontal: 35, vertical: 18), textStyle: GoogleFonts.nunito(fontSize: 18, fontWeight: FontWeight.w600), elevation: 3, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)), ),
+                    onPressed: () { final settings = Provider.of<SettingsProvider>(context, listen: false); final game = Provider.of<GameProvider>(context, listen: false);
+                      if (_selectedDifficulty == -1) { settings.selectRandomPalette(); game.loadNewPuzzle(difficulty: -1); } else { game.loadNewPuzzle(difficulty: _selectedDifficulty); }
+                      Navigator.push( context, MaterialPageRoute(builder: (context) => const GameScreen()), ); }, ),
+                  const SizedBox(height: 25),
+                  ElevatedButton.icon( /* ... Settings Button ... */
+                     icon: const Icon(Icons.settings_outlined), label: Text('Settings', style: GoogleFonts.nunito(fontSize: 18)), style: ElevatedButton.styleFrom( backgroundColor: currentTheme.colorScheme.secondaryContainer, foregroundColor: currentTheme.colorScheme.onSecondaryContainer, padding: const EdgeInsets.symmetric(horizontal: 35, vertical: 18), textStyle: GoogleFonts.nunito(fontSize: 18, fontWeight: FontWeight.w600), elevation: 3, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)), ),
+                    onPressed: () { Navigator.push( context, MaterialPageRoute(builder: (context) => const SettingsScreen()), ); }, ),
+                ], ), ), ),
         ],
       ),
     );
