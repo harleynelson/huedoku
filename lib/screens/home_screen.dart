@@ -183,7 +183,7 @@ class _HomeScreenState extends State<HomeScreen> { // Removed TickerProviderStat
 
                   // --- Outer Container with Max Width Constraint ---
                   Container(
-                    constraints: const BoxConstraints(maxWidth: 450),
+                    constraints: const BoxConstraints(maxWidth: 325),
                     width: double.infinity,
                     alignment: Alignment.center,
                     child: Container( // Original Container for styling

@@ -9,7 +9,7 @@ import 'package:huedoku/models/color_palette.dart';
 import 'package:huedoku/models/sudoku_cell_data.dart';
 
 const Map<int, String> difficultyLabels = {
-  -1: "Random", 0: "Easy", 1: "Medium", 2: "Hard", 3: "Expert",
+  -1: "Random", 0: "Easy", 1: "Medium", 2: "Hard", 3: "Painful",
 };
 
 class GameProvider extends ChangeNotifier {
@@ -95,10 +95,10 @@ class GameProvider extends ChangeNotifier {
       // Adjust these targets based on desired difficulty and performance
       // Fewer cells removed = easier, More cells removed = harder (but takes longer)
       switch (actualDifficulty) {
-          case 0: cellsToRemove = 35; break; // Easy (35 normally)
-          case 1: cellsToRemove = 42; break; // Medium
-          case 2: cellsToRemove = 49; break; // Hard
-          case 3: cellsToRemove = 53; break; // Expert (may take noticeable time)
+          case 0: cellsToRemove = 30; break; // Easy (35 normally)
+          case 1: cellsToRemove = 40; break; // Medium
+          case 2: cellsToRemove = 47; break; // Hard
+          case 3: cellsToRemove = 53; break; // Painful (may take noticeable time)
           default: cellsToRemove = 42;
       }
       cellsToRemove = min(cellsToRemove, 60); // Limit removals to avoid excessive generation time
