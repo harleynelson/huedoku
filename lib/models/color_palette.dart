@@ -8,12 +8,10 @@ class ColorPalette {
   final String name;
   final List<Color> colors; // Should contain exactly 9 distinct colors
 
-  // --- Removed 'const' from constructor ---
   ColorPalette({required this.name, required this.colors})
-      // The assert still runs for non-const instances or during runtime checks
       : assert(colors.length == 9, 'Palette must contain exactly 9 colors.');
 
-  // --- Changed 'static const' to 'static final' ---
+  // --- Existing Palettes ---
   static final ColorPalette classic = ColorPalette(
     name: 'Classic',
     colors: [
@@ -53,8 +51,6 @@ class ColorPalette {
     ],
   );
 
-   // Colorblind Friendly Palette (Example using Paul Tol's vibrant scheme)
-   // Ref: https://personal.sron.nl/~pault/
    static final ColorPalette accessibleVibrant = ColorPalette(
      name: 'Accessible Vibrant',
      colors: [
@@ -70,12 +66,78 @@ class ColorPalette {
      ],
    );
 
+  // --- New Palettes ---
+  static final ColorPalette sunset = ColorPalette(
+    name: 'Sunset',
+    colors: [
+      const Color(0xFFFBE48E), // Light Yellow
+      const Color(0xFFF8C37A), // Pale Orange
+      const Color(0xFFF4A261), // Sandy Brown (Orange)
+      const Color(0xFFE76F51), // Burnt Sienna (Red-Orange)
+      const Color(0xFFD94A5C), // Darker Coral Red
+      const Color(0xFFC03961), // Magenta/Rose
+      const Color(0xFF9A3466), // Deep Purple/Red
+      const Color(0xFF722F6C), // Dark Purple
+      const Color(0xFF4A2A71), // Very Dark Purple/Blue
+    ],
+  );
 
-  // This list now holds 'final' ColorPalette objects
+  static final ColorPalette pastel = ColorPalette(
+    name: 'Pastel',
+    colors: [
+      const Color(0xFFA8E6CF), // Mint Green
+      const Color(0xFFDCEDC1), // Light Lime
+      const Color(0xFFFFF9C4), // Pale Yellow
+      const Color(0xFFFFE0B2), // Light Orange
+      const Color(0xFFFFCCBC), // Light Coral
+      const Color(0xFFF8BBD0), // Light Pink
+      const Color(0xFFE1BEE7), // Light Lavender
+      const Color(0xFFD1C4E9), // Light Purple/Blue
+      const Color(0xFFBBDEFB), // Light Blue
+    ],
+  );
+
+   static final ColorPalette monochrome = ColorPalette(
+     name: 'Monochrome',
+     // Shades of grey from light to dark
+     colors: [
+       const Color(0xFFFFFFFF), // White
+       const Color(0xFFE0E0E0), // Grey 100
+       const Color(0xFFBDBDBD), // Grey 200
+       const Color(0xFF9E9E9E), // Grey 300
+       const Color(0xFF757575), // Grey 400
+       const Color(0xFF616161), // Grey 500
+       const Color(0xFF424242), // Grey 600
+       const Color(0xFF303030), // Grey 700
+       const Color(0xFF212121), // Grey 800/Black
+     ],
+   );
+
+   static final ColorPalette retro = ColorPalette(
+     name: 'Retro',
+     colors: [
+        const Color(0xFFF9D423), // Yellow
+        const Color(0xFFFF4E50), // Red/Orange
+        const Color(0xFFFC913A), // Orange
+        const Color(0xFF59CD90), // Green
+        const Color(0xFF30A9DE), // Blue
+        const Color(0xFF247BA0), // Darker Blue
+        const Color(0xFF702470), // Purple
+        const Color(0xFFE4446F), // Pink
+        const Color(0xFF8D5A9B), // Mauve
+     ],
+   );
+
+
+  // --- Updated defaultPalettes List ---
   static List<ColorPalette> defaultPalettes = [
     classic,
+    sunset, // Added
+    pastel, // Added
     forest,
     ocean,
+    retro, // Added
+    monochrome, // Added
     accessibleVibrant,
     // Add more palettes here
   ];

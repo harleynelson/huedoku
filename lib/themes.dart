@@ -8,9 +8,10 @@ import 'package:google_fonts/google_fonts.dart'; // Import Google Fonts
 // Consistent keys used across SettingsProvider and main.dart
 const String lightThemeKey = 'light';
 const String darkThemeKey = 'dark';
-const String forestThemeKey = 'forest';
-const String oceanThemeKey = 'ocean';
-const String cosmicThemeKey = 'cosmic';
+// --- REMOVED Forest, Ocean, Cosmic keys ---
+// const String forestThemeKey = 'forest';
+// const String oceanThemeKey = 'ocean';
+// const String cosmicThemeKey = 'cosmic';
 
 // --- Common Styling Elements ---
 const double _smallRadius = 8.0;
@@ -22,13 +23,13 @@ final _baseInputBorder = OutlineInputBorder(
 );
 
 // --- Theme Definitions Map ---
+// --- REMOVED Forest, Ocean, Cosmic entries ---
 final Map<String, ThemeData> appThemes = {
   lightThemeKey: _buildLightTheme(),
   darkThemeKey: _buildDarkTheme(),
-  forestThemeKey: _buildForestTheme(),
-  oceanThemeKey: _buildOceanTheme(),
-  cosmicThemeKey: _buildCosmicTheme(),
-  // Add more themes here...
+  // forestThemeKey: _buildForestTheme(),
+  // oceanThemeKey: _buildOceanTheme(),
+  // cosmicThemeKey: _buildCosmicTheme(),
 };
 
 
@@ -137,157 +138,9 @@ ThemeData _buildDarkTheme() {
     );
 }
 
-ThemeData _buildForestTheme() {
-    final baseTheme = ThemeData.light(useMaterial3: true);
-    final colorScheme = ColorScheme.fromSeed(
-        seedColor: Colors.green.shade700, // Forest green seed
-        brightness: Brightness.light,
-         primary: Colors.green.shade800,
-         secondary: Colors.brown.shade400,
-         background: const Color(0xFFF1F8E9), // Very light green
-         surface: const Color(0xFFE6F0DC),
-    );
-
-    return baseTheme.copyWith(
-        colorScheme: colorScheme,
-        scaffoldBackgroundColor: colorScheme.background,
-        appBarTheme: AppBarTheme(
-            backgroundColor: colorScheme.primary.withOpacity(0.6),
-            foregroundColor: colorScheme.onPrimary,
-            elevation: 0,
-             titleTextStyle: GoogleFonts.nunito(
-               fontWeight: FontWeight.bold, fontSize: 20, color: colorScheme.onPrimary
-            ),
-        ),
-        floatingActionButtonTheme: FloatingActionButtonThemeData(
-             backgroundColor: colorScheme.secondary,
-             foregroundColor: colorScheme.onSecondary,
-             elevation: 2,
-             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_mediumRadius)),
-        ),
-         dialogTheme: DialogTheme(
-            backgroundColor: colorScheme.surface,
-             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_mediumRadius)),
-        ),
-         cardTheme: CardTheme(
-           elevation: 0,
-           color: Colors.white.withOpacity(0.4), // Whiter glass for light theme
-           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_mediumRadius)),
-        ),
-         inputDecorationTheme: InputDecorationTheme(
-             filled: true,
-             fillColor: colorScheme.primary.withOpacity(0.05),
-             border: _baseInputBorder, enabledBorder: _baseInputBorder, focusedBorder: _baseInputBorder,
-             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        ),
-        textTheme: GoogleFonts.nunitoTextTheme(baseTheme.textTheme).apply(
-             bodyColor: colorScheme.onBackground,
-             displayColor: colorScheme.onBackground,
-         ),
-         visualDensity: VisualDensity.adaptivePlatformDensity,
-    );
-}
-
- ThemeData _buildOceanTheme() {
-    final baseTheme = ThemeData.dark(useMaterial3: true);
-     final colorScheme = ColorScheme.fromSeed(
-        seedColor: Colors.lightBlue.shade400, // Ocean blue seed
-        brightness: Brightness.dark,
-         primary: Colors.cyan.shade700,
-         secondary: Colors.lightBlue.shade300,
-         background: const Color(0xFF01579B), // Deep blue
-         surface: const Color(0xFF0277BD), // Slightly lighter blue
-    );
-
-    return baseTheme.copyWith(
-        colorScheme: colorScheme,
-        scaffoldBackgroundColor: colorScheme.background,
-        appBarTheme: AppBarTheme(
-            backgroundColor: colorScheme.primary.withOpacity(0.6),
-            foregroundColor: colorScheme.onPrimary,
-            elevation: 0,
-             titleTextStyle: GoogleFonts.nunito(
-               fontWeight: FontWeight.bold, fontSize: 20, color: colorScheme.onPrimary
-            ),
-        ),
-         floatingActionButtonTheme: FloatingActionButtonThemeData(
-             backgroundColor: colorScheme.secondary,
-             foregroundColor: colorScheme.onSecondary,
-             elevation: 2,
-             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_mediumRadius)),
-         ),
-         dialogTheme: DialogTheme(
-            backgroundColor: colorScheme.surface,
-             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_mediumRadius)),
-        ),
-         cardTheme: CardTheme(
-           elevation: 0,
-           color: Colors.black.withOpacity(0.3), // Darker glass for dark theme
-           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_mediumRadius)),
-        ),
-         inputDecorationTheme: InputDecorationTheme(
-             filled: true,
-             fillColor: colorScheme.onSurface.withOpacity(0.05),
-             border: _baseInputBorder, enabledBorder: _baseInputBorder, focusedBorder: _baseInputBorder,
-             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        ),
-        textTheme: GoogleFonts.nunitoTextTheme(baseTheme.textTheme).apply(
-             bodyColor: colorScheme.onBackground,
-             displayColor: colorScheme.onBackground,
-         ),
-         visualDensity: VisualDensity.adaptivePlatformDensity,
-    );
-}
-
-
- ThemeData _buildCosmicTheme() {
-    final baseTheme = ThemeData.dark(useMaterial3: true);
-     final colorScheme = ColorScheme.fromSeed(
-        seedColor: Colors.deepPurple.shade400, // Cosmic purple seed
-        brightness: Brightness.dark,
-         primary: Colors.indigo.shade700,
-         secondary: Colors.pinkAccent.shade100,
-         background: const Color(0xFF1A1A2E), // Very dark blue/purple
-         surface: const Color(0xFF24244A), // Slightly lighter dark blue/purple
-         error: Colors.redAccent.shade100,
-    );
-
-    return baseTheme.copyWith(
-        colorScheme: colorScheme,
-        scaffoldBackgroundColor: colorScheme.background,
-        appBarTheme: AppBarTheme(
-            backgroundColor: colorScheme.primary.withOpacity(0.6),
-            foregroundColor: colorScheme.onPrimary,
-            elevation: 0,
-             titleTextStyle: GoogleFonts.nunito( // Or maybe Orbitron for cosmic?
-               fontWeight: FontWeight.bold, fontSize: 20, color: colorScheme.onPrimary
-            ),
-        ),
-        floatingActionButtonTheme: FloatingActionButtonThemeData(
-             backgroundColor: colorScheme.secondary,
-             foregroundColor: Colors.black, // Need dark text on light pink
-             elevation: 2,
-             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_mediumRadius)),
-         ),
-         dialogTheme: DialogTheme(
-            backgroundColor: colorScheme.surface,
-             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_mediumRadius)),
-        ),
-         cardTheme: CardTheme(
-           elevation: 0,
-           color: Colors.black.withOpacity(0.4), // Darker glass
-           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_mediumRadius)),
-        ),
-         inputDecorationTheme: InputDecorationTheme(
-             filled: true,
-             fillColor: colorScheme.onSurface.withOpacity(0.05),
-             border: _baseInputBorder, enabledBorder: _baseInputBorder, focusedBorder: _baseInputBorder,
-             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        ),
-        textTheme: GoogleFonts.nunitoTextTheme(baseTheme.textTheme).apply(
-             bodyColor: colorScheme.onBackground,
-             displayColor: colorScheme.onBackground,
-         ),
-         visualDensity: VisualDensity.adaptivePlatformDensity,
-    );
-}
+// --- REMOVED _buildForestTheme, _buildOceanTheme, _buildCosmicTheme ---
+/*
+ThemeData _buildForestTheme() { ... }
+ThemeData _buildOceanTheme() { ... }
+ThemeData _buildCosmicTheme() { ... }
+*/
