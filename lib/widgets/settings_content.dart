@@ -225,6 +225,29 @@ class SettingsContent extends StatelessWidget {
             },
           ),
 
+          // --- New Setting Toggles ---
+          SwitchListTile(
+             contentPadding: EdgeInsets.zero,
+             title: Text('Dim Completed Colors', style: GoogleFonts.nunito(textStyle: currentTheme.textTheme.titleMedium)),
+             subtitle: Text('Fade colors/patterns when all 9 are placed', style: GoogleFonts.nunito(textStyle: currentTheme.textTheme.bodySmall)),
+             value: settingsProvider.reduceCompleteGlobalOptions, // Use new setting
+             onChanged: (value) {
+               Provider.of<SettingsProvider>(context, listen: false).setReduceCompleteGlobalOptions(value); // Use new setter
+             },
+             activeColor: currentTheme.colorScheme.primary,
+           ),
+           SwitchListTile(
+             contentPadding: EdgeInsets.zero,
+             title: Text('Dim Used in Row/Col/Block', style: GoogleFonts.nunito(textStyle: currentTheme.textTheme.titleMedium)),
+             subtitle: Text('Fade colors/patterns used in selection area', style: GoogleFonts.nunito(textStyle: currentTheme.textTheme.bodySmall)),
+             value: settingsProvider.reduceUsedLocalOptions, // Use new setting
+             onChanged: (value) {
+               Provider.of<SettingsProvider>(context, listen: false).setReduceUsedLocalOptions(value); // Use new setter
+             },
+             activeColor: currentTheme.colorScheme.primary,
+           ),
+           // --- End New Setting Toggles ---
+
           const SizedBox(height: 20),
           // --- Accessibility Note ---
           Text('Accessibility', style: GoogleFonts.nunito(

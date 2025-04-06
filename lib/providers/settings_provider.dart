@@ -15,6 +15,12 @@ class SettingsProvider extends ChangeNotifier {
   bool _highlightPeers = true;
   bool _showErrors = true;
   bool _timerEnabled = true;
+  // --- New Split Settings ---
+  bool _reduceUsedLocalOptions = false; // Default to false (Dim if used in row/col/block)
+  bool _reduceCompleteGlobalOptions = true; // Default to true (Dim if color is fully completed)
+  // --- Removed Old Setting ---
+  // bool _reduceUsedPaletteOptions = true;
+
   // Use system brightness to determine initial default theme key
   String _selectedThemeKey = WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark
                             ? darkThemeKey
@@ -26,6 +32,9 @@ class SettingsProvider extends ChangeNotifier {
   bool get highlightPeers => _highlightPeers;
   bool get showErrors => _showErrors;
   bool get timerEnabled => _timerEnabled;
+  // --- New Getters ---
+  bool get reduceUsedLocalOptions => _reduceUsedLocalOptions;
+  bool get reduceCompleteGlobalOptions => _reduceCompleteGlobalOptions;
   String get selectedThemeKey => _selectedThemeKey;
   // isDarkMode can be derived from the selected theme if needed
   bool get isDarkMode => appThemes[_selectedThemeKey]?.brightness == Brightness.dark;
@@ -72,6 +81,24 @@ class SettingsProvider extends ChangeNotifier {
     }
   }
 
+  // --- New Setters ---
+  Future<void> setReduceUsedLocalOptions(bool value) async {
+    if (_reduceUsedLocalOptions != value) {
+      _reduceUsedLocalOptions = value;
+      notifyListeners();
+      // TODO: Save to SharedPreferences
+    }
+  }
+
+  Future<void> setReduceCompleteGlobalOptions(bool value) async {
+    if (_reduceCompleteGlobalOptions != value) {
+      _reduceCompleteGlobalOptions = value;
+      notifyListeners();
+      // TODO: Save to SharedPreferences
+    }
+  }
+  // --- End New Setters ---
+
   // --- Setter: Select Theme ---
   Future<void> setSelectedThemeKey(String themeKey) async {
       // Validate theme key exists in our defined themes
@@ -90,7 +117,7 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   /* TODO: Persistence logic using shared_preferences
-     Load _selectedThemeKey in loadSettings()
-     Save _selectedThemeKey in _saveSettings()
+     Load/Save _reduceUsedLocalOptions
+     Load/Save _reduceCompleteGlobalOptions
   */
 }

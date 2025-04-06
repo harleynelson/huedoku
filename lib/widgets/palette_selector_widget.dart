@@ -27,6 +27,9 @@ class PaletteSelectorWidget extends StatelessWidget {
         final bool isEditingCandidates = gameProvider.isEditingCandidates;
         final CellOverlay currentOverlay = settingsProvider.cellOverlay;
         final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
+        // --- Get the two new setting values ---
+        final bool reduceLocal = settingsProvider.reduceUsedLocalOptions;
+        final bool reduceGlobal = settingsProvider.reduceCompleteGlobalOptions;
 
         // Define base styles for the circle container
         const double circleSize = 40.0; // Slightly larger circles
@@ -116,33 +119,55 @@ class PaletteSelectorWidget extends StatelessWidget {
                         break;
                   }
 
+                  // --- Check if this option should be dimmed (combined logic) ---
+                  bool isDimmed = false;
+                  if (!gameProvider.isCompleted) { // Only dim if game is not over
+                     // Check global completion setting first
+                     if (reduceGlobal && gameProvider.isColorGloballyComplete(index)) {
+                         isDimmed = true;
+                     }
+                     // If not dimmed by global check, check local usage setting
+                     if (!isDimmed && reduceLocal && gameProvider.selectedRow != null && gameProvider.selectedCol != null) {
+                        if (gameProvider.isColorUsedInSelectionContext(index, gameProvider.selectedRow!, gameProvider.selectedCol!)) {
+                            isDimmed = true;
+                        }
+                     }
+                  }
+                  // --- End dim check ---
+
                   // Use a common transition duration
                   const Duration transitionDuration = Duration(milliseconds: 150);
+                  // Define opacity based on dimmed state
+                  final double itemOpacity = isDimmed ? 0.3 : 1.0; // Dim to 30% opacity
 
                   return GestureDetector(
-                    onTap: () {
-                      if (!gameProvider.isCompleted) {
+                    // Disable tap if dimmed or game is completed
+                    onTap: isDimmed || gameProvider.isCompleted ? null : () {
                           gameProvider.placeValue( index, showErrors: settingsProvider.showErrors );
-                      }
                     },
-                    child: AnimatedContainer( // Animate the border change
-                      duration: transitionDuration,
-                      width: circleSize,
-                      height: circleSize,
-                      clipBehavior: Clip.antiAlias, // Use antiAlias for smoother circle clip
-                      decoration: BoxDecoration(
-                        // Background is ALWAYS the palette color now
-                        color: circleBackgroundColor,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: isSelectedColor ? selectedBorderColor : defaultBorderColor,
-                          width: isSelectedColor ? selectedBorderWidth : defaultBorderWidth,
+                    child: Opacity( // Apply opacity based on dimmed state
+                      opacity: itemOpacity,
+                      child: AnimatedContainer( // Animate the border change
+                        duration: transitionDuration,
+                        width: circleSize,
+                        height: circleSize,
+                        clipBehavior: Clip.antiAlias, // Use antiAlias for smoother circle clip
+                        decoration: BoxDecoration(
+                          // Background is ALWAYS the palette color now
+                          color: circleBackgroundColor,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            // Dim border if item is dimmed
+                            color: isSelectedColor ? selectedBorderColor : defaultBorderColor.withOpacity(itemOpacity),
+                            width: isSelectedColor ? selectedBorderWidth : defaultBorderWidth,
+                          ),
+                          // Dim shadow if item is dimmed
+                          boxShadow: isDimmed ? null : circleBoxShadow,
                         ),
-                        boxShadow: circleBoxShadow,
+                        // Add the conditional child (Number, Pattern, or Empty)
+                        // Use Center to ensure painter/text is centered if it doesn't fill
+                        child: Center(child: childWidget),
                       ),
-                      // Add the conditional child (Number, Pattern, or Empty)
-                      // Use Center to ensure painter/text is centered if it doesn't fill
-                      child: Center(child: childWidget),
                     ),
                   );
                 }),
