@@ -179,7 +179,7 @@ class _GameScreenState extends State<GameScreen> { // Removed TickerProviderStat
                   content: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                       Text('You solved the Huedoku in:', style: GoogleFonts.nunito(textStyle: dialogTextTheme.bodyMedium)),
+                       Text('You solved it in:', style: GoogleFonts.nunito(textStyle: dialogTextTheme.bodyMedium)),
                        const SizedBox(height: 10),
                        Text(
                           _formatDuration(finalTime),
