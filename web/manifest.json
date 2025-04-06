@@ -1,6 +1,6 @@
 {
-    "name": "huedoku",
-    "short_name": "huedoku",
+    "name": "rainbodoku",
+    "short_name": "rainbodoku",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

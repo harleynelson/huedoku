@@ -141,7 +141,7 @@ class _GameScreenState extends State<GameScreen> /* with TickerProviderStateMixi
               final ThemeData dialogTheme = Theme.of(dialogContext); final TextTheme dialogTextTheme = dialogTheme.textTheme; final Color? defaultDialogTextColor = dialogTextTheme.bodyMedium?.color;
               return AlertDialog( shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
                   title: Row( children: [ Icon(Icons.celebration_outlined, color: dialogTheme.colorScheme.primary), const SizedBox(width: 8), Text('Congratulations!', style: GoogleFonts.nunito(textStyle: dialogTextTheme.titleLarge)), ], ),
-                  content: Column( mainAxisSize: MainAxisSize.min, children: [ Text('You solved the Huedoku in:', style: GoogleFonts.nunito(textStyle: dialogTextTheme.bodyMedium)), const SizedBox(height: 10),
+                  content: Column( mainAxisSize: MainAxisSize.min, children: [ Text('You solved the Rainbodoku in:', style: GoogleFonts.nunito(textStyle: dialogTextTheme.bodyMedium)), const SizedBox(height: 10),
                        Text( _formatDuration(finalTime), style: GoogleFonts.nunito( fontSize: dialogTextTheme.headlineSmall!.fontSize! * 1.1, fontWeight: FontWeight.bold, color: defaultDialogTextColor ?? (dialogTheme.brightness == Brightness.dark ? Colors.white : Colors.black), fontFeatures: [const ui.FontFeature.tabularFigures()], ), textAlign: TextAlign.center, ),
                         const SizedBox(height: 15), ], ),
                   actions: <Widget>[
@@ -178,7 +178,7 @@ class _GameScreenState extends State<GameScreen> /* with TickerProviderStateMixi
       backgroundColor: Colors.transparent, extendBodyBehindAppBar: true,
       appBar: AppBar( /* ... AppBar Content ... */
            backgroundColor: currentTheme.brightness == Brightness.dark ? Colors.black.withOpacity(0.2) : Colors.white.withOpacity(0.1), elevation: 0, foregroundColor: currentTheme.colorScheme.onSurface,
-           title: Text('Huedoku', style: GoogleFonts.nunito()), leading: IconButton( icon: const Icon(Icons.arrow_back), onPressed: () { gameProvider.pauseGame(); Navigator.pop(context); }, ),
+           title: Text('Rainbodoku', style: GoogleFonts.nunito()), leading: IconButton( icon: const Icon(Icons.arrow_back), onPressed: () { gameProvider.pauseGame(); Navigator.pop(context); }, ),
            actions: [ /* ... Difficulty Chip ... */ Consumer<GameProvider>( builder: (context, game, child) { final difficultyLevel = game.currentPuzzleDifficulty; final difficultyText = difficultyLevel != null ? difficultyLabels[difficultyLevel] ?? '?' : ''; if (difficultyText.isEmpty) return const SizedBox.shrink(); return Padding( padding: const EdgeInsets.only(right: 8.0), child: Chip( label: Text( difficultyText, style: GoogleFonts.nunito( textStyle: currentTheme.textTheme.labelSmall, color: currentTheme.colorScheme.onSecondaryContainer, fontWeight: FontWeight.w600, ) ), backgroundColor: currentTheme.colorScheme.secondaryContainer.withOpacity(0.7), padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 0), visualDensity: VisualDensity.compact, side: BorderSide.none, ), ); } ),
               // --- Updated Selector Builder ---
               Selector<GameProvider, Tuple2<bool, bool>>(

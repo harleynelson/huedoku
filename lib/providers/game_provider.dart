@@ -95,7 +95,7 @@ class GameProvider extends ChangeNotifier {
       // Adjust these targets based on desired difficulty and performance
       // Fewer cells removed = easier, More cells removed = harder (but takes longer)
       switch (actualDifficulty) {
-          case 0: cellsToRemove = 5; break; // Easy (35 normally)
+          case 0: cellsToRemove = 35; break; // Easy (35 normally)
           case 1: cellsToRemove = 42; break; // Medium
           case 2: cellsToRemove = 49; break; // Hard
           case 3: cellsToRemove = 53; break; // Expert (may take noticeable time)
