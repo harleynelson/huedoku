@@ -20,7 +20,9 @@ class GameProvider extends ChangeNotifier {
   int? _selectedRow;
   int? _selectedCol;
   final Random _random = Random();
-  int? _currentPuzzleDifficulty;
+  int? _currentPuzzleDifficulty; // Stores the *actual* difficulty (0-3) used
+  // --- New state variable ---
+  int? _initialDifficultySelection; // Stores the difficulty selected by user (-1, 0, 1, 2, 3)
 
   Timer? _timer;
   Duration _elapsedTime = Duration.zero;
@@ -29,7 +31,6 @@ class GameProvider extends ChangeNotifier {
   final List<List<List<SudokuCellData>>> _history = [];
   final int _maxHistory = 20;
 
-  // Minimum clues required per row/col/box after removal
   static const int _minCluesConstraint = 2;
 
   List<List<SudokuCellData>> get board => _board;
@@ -41,35 +42,42 @@ class GameProvider extends ChangeNotifier {
   bool get isPaused => _isPaused;
   bool get isCompleted => _isCompleted;
   bool get canUndo => _history.isNotEmpty;
-  int? get currentPuzzleDifficulty => _currentPuzzleDifficulty;
+  int? get currentPuzzleDifficulty => _currentPuzzleDifficulty; // Actual difficulty used
+  // --- New getter ---
+  int? get initialDifficultySelection => _initialDifficultySelection; // User's selection
 
-  // --- loadNewPuzzle, _generateSolvedBoard, _createSolvablePuzzleFromSolvedBoard ---
-  // --- _checkConstraints, _checkRowCount, _checkColCount, _checkBlockCount ---
-  // --- _isValidPlacement, updateBoardErrors, _isBoardCompleteAndCorrect ---
-  // --- provideHint, selectCell, placeValue, toggleEditMode, eraseSelectedCell ---
-  // --- _saveStateToHistory, performUndo ---
-  // --- startTimer, pauseTimer, resumeTimer, stopTimer, resetTimer ---
-  // --- pauseGame, resumeGame ---
-  // (These methods remain unchanged from the previous version)
-  void loadNewPuzzle({int difficulty = 1}) {
+  // --- Updated loadNewPuzzle ---
+  void loadNewPuzzle({int difficulty = 1}) { // Default remains Medium if unspecified
+      // Store the user's selection (-1, 0, 1, 2, 3)
+      _initialDifficultySelection = difficulty;
+
+      // Determine the actual difficulty to use for generation (0-3)
       int actualDifficulty;
-      if (difficulty == -1) { actualDifficulty = _random.nextInt(4); }
-      else { actualDifficulty = difficulty.clamp(0, 3); }
+      if (difficulty == -1) { // If user selected Random
+         actualDifficulty = _random.nextInt(4); // Pick one from 0-3
+      } else { // User selected a specific difficulty
+         actualDifficulty = difficulty.clamp(0, 3); // Clamp just in case
+      }
+      // Store the actual difficulty used for this puzzle
       _currentPuzzleDifficulty = actualDifficulty;
 
-      if (kDebugMode) print("Loading new puzzle with actual difficulty: $actualDifficulty (${difficultyLabels[actualDifficulty]})");
+      if (kDebugMode) {
+        print("Loading new puzzle. Initial selection: $difficulty -> Actual difficulty: $actualDifficulty (${difficultyLabels[actualDifficulty]})");
+      }
 
       _solutionBoard = List.generate(9, (_) => List.generate(9, (_) => null));
       if (!_generateSolvedBoard(_solutionBoard)) {
          if (kDebugMode) print("Error: Failed to generate a solved Sudoku board.");
          _isPuzzleLoaded = false;
          _currentPuzzleDifficulty = null;
+         _initialDifficultySelection = null; // Reset if failed
          notifyListeners();
          return;
       }
 
       _board = _createSolvablePuzzleFromSolvedBoard(_solutionBoard, actualDifficulty);
 
+      // Reset game state
       _isPuzzleLoaded = true;
       _isCompleted = false;
       _isPaused = false;
@@ -81,7 +89,9 @@ class GameProvider extends ChangeNotifier {
       startTimer();
       notifyListeners();
   }
+  // --- End updated loadNewPuzzle ---
 
+  // --- (Rest of the GameProvider methods remain unchanged) ---
   bool _generateSolvedBoard(List<List<int?>> board) {
     int? row, col; bool foundEmpty=false;
     for(row=0; row!<9; row++){for(col=0; col!<9; col++){if(board[row][col]==null){foundEmpty=true; break;}}if(foundEmpty)break;}
@@ -94,7 +104,7 @@ class GameProvider extends ChangeNotifier {
   List<List<SudokuCellData>> _createSolvablePuzzleFromSolvedBoard(List<List<int?>> solvedBoard, int actualDifficulty) {
       int cellsToRemove;
       switch (actualDifficulty) {
-          case 0: cellsToRemove = 30; break; // Easy
+          case 0: cellsToRemove = 2; break; // Easy (2 for debugging, 30 for real)
           case 1: cellsToRemove = 40; break; // Medium
           case 2: cellsToRemove = 50; break; // Hard
           case 3: cellsToRemove = 55; break; // Expert
@@ -251,65 +261,24 @@ class GameProvider extends ChangeNotifier {
    void pauseGame(){pauseTimer();notifyListeners();}
    void resumeGame(){resumeTimer();notifyListeners();}
 
-
-  // --- Helper Methods for Palette Dimming (Updated) ---
-
-  /// Checks if a specific color/pattern index is fully placed correctly on the board.
-  /// (Checks against the solution board).
   bool isColorGloballyComplete(int colorIndex) {
     if (!_isPuzzleLoaded || _solutionBoard.isEmpty || _board.isEmpty) return false;
-
-    int solutionCount = 0;
-    int boardCorrectCount = 0;
-
-    for (int r = 0; r < 9; r++) {
-      for (int c = 0; c < 9; c++) {
-        if (_solutionBoard[r][c] == colorIndex) {
-          solutionCount++;
-          // Check if the current board has the correct value at this position
-          // and it doesn't have an error flag (though correct placement implies no error)
-          if (_board[r][c].value == colorIndex && !_board[r][c].hasError) {
-            boardCorrectCount++;
-          }
-        }
-      }
-    }
-
-    // Globally complete if exactly 9 instances are expected AND correctly placed
-    // (solutionCount should always be 9 for a valid Sudoku)
+    int solutionCount = 0; int boardCorrectCount = 0;
+    for (int r = 0; r < 9; r++) { for (int c = 0; c < 9; c++) {
+        if (_solutionBoard[r][c] == colorIndex) { solutionCount++;
+          if (_board[r][c].value == colorIndex && !_board[r][c].hasError) { boardCorrectCount++; } } } }
     return solutionCount == 9 && boardCorrectCount == 9;
   }
 
-
-  /// Checks if a specific color/pattern index is currently placed (value is set)
-  /// within the selected row, column, OR 3x3 block.
-  /// (Checks only the current board state).
   bool isColorUsedInSelectionContext(int colorIndex, int row, int col) {
     if (!_isPuzzleLoaded || _board.isEmpty) return false;
-
-    // Check Row
-    for (int c = 0; c < 9; c++) {
-      if (_board[row][c].value == colorIndex) return true;
-    }
-
-    // Check Column
-    for (int r = 0; r < 9; r++) {
-      if (_board[r][col].value == colorIndex) return true;
-    }
-
-    // Check Block
-    int startRow = (row ~/ 3) * 3;
-    int startCol = (col ~/ 3) * 3;
-    for (int r = 0; r < 3; r++) {
-      for (int c = 0; c < 3; c++) {
+    for (int c = 0; c < 9; c++) { if (_board[row][c].value == colorIndex) return true; }
+    for (int r = 0; r < 9; r++) { if (_board[r][col].value == colorIndex) return true; }
+    int startRow = (row ~/ 3) * 3; int startCol = (col ~/ 3) * 3;
+    for (int r = 0; r < 3; r++) { for (int c = 0; c < 3; c++) {
         if (_board[startRow + r][startCol + c].value == colorIndex) return true;
-      }
-    }
-
-    return false; // Not used in row, column, or block
+    }} return false;
   }
-  // --- End Helper Methods ---
-
 
   @override
   void dispose() { stopTimer(); super.dispose(); }
