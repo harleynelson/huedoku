@@ -125,11 +125,19 @@ class _GameScreenState extends State<GameScreen> /* with TickerProviderStateMixi
                    child: Padding( padding: const EdgeInsets.only(top: 8.0), child: SettingsContent(), ) ), ), ); }, ); }
 
   void _showCompletionDialog(BuildContext context, Duration finalTime) {
-      if (kDebugMode) { print("--- Completion Dialog: finalTime = $finalTime ---"); }
-      if (mounted) { setState(() { _completionDialogShown = true; }); }
-      _confettiController.play();
-      showDialog( context: context, barrierDismissible: false,
-          builder: (BuildContext dialogContext) { /* ... Dialog builder remains the same ... */
+      if (kDebugMode) {
+         print("--- Completion Dialog: finalTime = $finalTime ---");
+      }
+
+      // --- REMOVED setState from here ---
+      // if (mounted) { setState(() { _completionDialogShown = true; }); }
+      _confettiController.play(); // Start confetti immediately
+
+      showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext dialogContext) {
+              // ... (Dialog builder code remains the same) ...
               final ThemeData dialogTheme = Theme.of(dialogContext); final TextTheme dialogTextTheme = dialogTheme.textTheme; final Color? defaultDialogTextColor = dialogTextTheme.bodyMedium?.color;
               return AlertDialog( shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
                   title: Row( children: [ Icon(Icons.celebration_outlined, color: dialogTheme.colorScheme.primary), const SizedBox(width: 8), Text('Congratulations!', style: GoogleFonts.nunito(textStyle: dialogTextTheme.titleLarge)), ], ),
@@ -138,16 +146,27 @@ class _GameScreenState extends State<GameScreen> /* with TickerProviderStateMixi
                         const SizedBox(height: 15), ], ),
                   actions: <Widget>[
                       TextButton( child: Text('New Game', style: GoogleFonts.nunito(textStyle: dialogTextTheme.labelLarge)),
-                          onPressed: () { final game = Provider.of<GameProvider>(context, listen: false); final settings = Provider.of<SettingsProvider>(context, listen: false); final int initialDifficulty = game.initialDifficultySelection ?? 1;
+                          onPressed: () {
+                              final game = Provider.of<GameProvider>(context, listen: false); final settings = Provider.of<SettingsProvider>(context, listen: false); final int initialDifficulty = game.initialDifficultySelection ?? 1;
                               if (initialDifficulty == -1) { settings.selectRandomPalette(); }
-                              if (mounted) { setState(() { _completionDialogShown = false; }); }
-                              Navigator.of(dialogContext).pop(); game.loadNewPuzzle(difficulty: initialDifficulty); _regenerateBokehParticles(); }, ),
-                      TextButton( child: Text('Close', style: GoogleFonts.nunito(textStyle: dialogTextTheme.labelLarge)), onPressed: () { Navigator.of(dialogContext).pop(); }, ),
-                  ], ); }, ).then((_) { if (mounted) { setState(() { _completionDialogShown = false; }); } }); }
+                              // Reset flag *before* popping and loading
+                              if (mounted) { setState(() { _completionDialogShown = false; }); } // This reset is correct
+                              Navigator.of(dialogContext).pop(); // Close the dialog
+                              game.loadNewPuzzle(difficulty: initialDifficulty);
+                              _regenerateBokehParticles();
+                          }, ),
+                      TextButton( child: Text('Close', style: GoogleFonts.nunito(textStyle: dialogTextTheme.labelLarge)),
+                        onPressed: () {
+                            // ONLY pop the dialog. Do NOT reset _completionDialogShown here.
+                            Navigator.of(dialogContext).pop();
+                        }, ), ], ); }, );
+       // --- REMOVED .then() block ---
+  }
 
 
   @override
   Widget build(BuildContext context) {
+    // ... (Provider setup, theme, gradient logic - unchanged) ...
     final settingsProvider = Provider.of<SettingsProvider>(context);
     final gameProvider = Provider.of<GameProvider>(context);
     final currentTheme = Theme.of(context);
@@ -155,49 +174,54 @@ class _GameScreenState extends State<GameScreen> /* with TickerProviderStateMixi
     final defaultFallbackGradient = LinearGradient( colors: [ currentTheme.colorScheme.surface, currentTheme.colorScheme.background, ], begin: Alignment.topLeft, end: Alignment.bottomRight, );
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
-      extendBodyBehindAppBar: true,
-      appBar: AppBar( /* ... AppBar unchanged ... */
-         backgroundColor: currentTheme.brightness == Brightness.dark ? Colors.black.withOpacity(0.2) : Colors.white.withOpacity(0.1), elevation: 0, foregroundColor: currentTheme.colorScheme.onSurface,
-         title: Text('Huedoku', style: GoogleFonts.nunito()), leading: IconButton( icon: const Icon(Icons.arrow_back), onPressed: () { gameProvider.pauseGame(); Navigator.pop(context); }, ),
-         actions: [ /* ... Actions unchanged ... */
-             Consumer<GameProvider>( builder: (context, game, child) { /* ... Difficulty Chip ... */ final difficultyLevel = game.currentPuzzleDifficulty; final difficultyText = difficultyLevel != null ? difficultyLabels[difficultyLevel] ?? '?' : ''; if (difficultyText.isEmpty) return const SizedBox.shrink(); return Padding( padding: const EdgeInsets.only(right: 8.0), child: Chip( label: Text( difficultyText, style: GoogleFonts.nunito( textStyle: currentTheme.textTheme.labelSmall, color: currentTheme.colorScheme.onSecondaryContainer, fontWeight: FontWeight.w600, ) ), backgroundColor: currentTheme.colorScheme.secondaryContainer.withOpacity(0.7), padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 0), visualDensity: VisualDensity.compact, side: BorderSide.none, ), ); } ),
-            Selector<GameProvider, Tuple2<bool, bool>>( selector: (_, game) => Tuple2(game.isPaused, game.isCompleted), builder: (context, data, child) { /* ... Pause/Play & Dialog Trigger Logic ... */ final isPaused = data.item1; final isCompleted = data.item2; if (isCompleted && !_completionDialogShown) { WidgetsBinding.instance.addPostFrameCallback((_) { if(mounted && isCompleted && !_completionDialogShown) { final finalTime = Provider.of<GameProvider>(context, listen: false).elapsedTime; setState(() { _completionDialogShown = true; }); _confettiController.play(); _showCompletionDialog(context, finalTime); } }); } return IconButton( icon: Icon(isPaused ? Icons.play_arrow : Icons.pause, color: isCompleted ? Colors.grey : null), tooltip: isPaused ? 'Resume' : 'Pause', onPressed: isCompleted ? null : () { final game = Provider.of<GameProvider>(context, listen: false); if (game.isPaused) { game.resumeGame(); } else { game.pauseGame(); } }, ); } ),
-            IconButton( icon: const Icon(Icons.settings_outlined), tooltip: 'Settings', onPressed: () { _showSettingsSheet(context); }, ),
-         ], ),
-      body: Stack(
-        children: [
-            Container( decoration: BoxDecoration( gradient: backgroundGradient ?? defaultFallbackGradient ) ),
-            // --- Use BokehPainter WITHOUT animation ---
-            if (_particlesInitialized)
-               CustomPaint(
-                  painter: BokehPainter(particles: _particles /*, animation: _bokehAnimation */), // Removed animation
-                  size: MediaQuery.of(context).size,
-               ),
-            // --- End BokehPainter update ---
-             Align( alignment: Alignment.topCenter, child: ConfettiWidget( /* ... Confetti unchanged ... */ confettiController: _confettiController, blastDirectionality: BlastDirectionality.explosive, shouldLoop: false, numberOfParticles: 20, gravity: 0.1, emissionFrequency: 0.03, maxBlastForce: 20, minBlastForce: 8, particleDrag: 0.05, colors: settingsProvider.selectedPalette.colors, createParticlePath: (size) => Path()..addOval(Rect.fromCircle(center: Offset.zero, radius: size.width / 2)), ), ),
-            SafeArea(
-              child: Padding( padding: const EdgeInsets.all(12.0),
-                child: Column( children: <Widget>[ /* ... Column Content Unchanged ... */
-                    Padding( padding: const EdgeInsets.symmetric(vertical: 10.0), child: Consumer<SettingsProvider>( builder: (context, settings, child) { return settings.timerEnabled ? Center(child: TimerWidget()) : const SizedBox(height: 50); }, ), ),
-                    const SizedBox(height: 10),
-                    Expanded( child: Center( child: AspectRatio( aspectRatio: 1.0, child: SudokuGridWidget() ) ) ),
-                    const SizedBox(height: 15),
-                    Stack( alignment: Alignment.center, children: [
-                        Visibility( visible: !gameProvider.isCompleted, maintainState: true, maintainAnimation: true, maintainSize: true,
-                          child: Column( mainAxisSize: MainAxisSize.min, children: const [ PaletteSelectorWidget(), SizedBox(height: 15), GameControls(), ], ), ),
-                        Visibility( visible: gameProvider.isCompleted,
-                          child: Padding( padding: const EdgeInsets.symmetric(vertical: 20.0), child: Center(
+      // ... (Scaffold setup, AppBar - unchanged) ...
+      backgroundColor: Colors.transparent, extendBodyBehindAppBar: true,
+      appBar: AppBar( /* ... AppBar Content ... */
+           backgroundColor: currentTheme.brightness == Brightness.dark ? Colors.black.withOpacity(0.2) : Colors.white.withOpacity(0.1), elevation: 0, foregroundColor: currentTheme.colorScheme.onSurface,
+           title: Text('Huedoku', style: GoogleFonts.nunito()), leading: IconButton( icon: const Icon(Icons.arrow_back), onPressed: () { gameProvider.pauseGame(); Navigator.pop(context); }, ),
+           actions: [ /* ... Difficulty Chip ... */ Consumer<GameProvider>( builder: (context, game, child) { final difficultyLevel = game.currentPuzzleDifficulty; final difficultyText = difficultyLevel != null ? difficultyLabels[difficultyLevel] ?? '?' : ''; if (difficultyText.isEmpty) return const SizedBox.shrink(); return Padding( padding: const EdgeInsets.only(right: 8.0), child: Chip( label: Text( difficultyText, style: GoogleFonts.nunito( textStyle: currentTheme.textTheme.labelSmall, color: currentTheme.colorScheme.onSecondaryContainer, fontWeight: FontWeight.w600, ) ), backgroundColor: currentTheme.colorScheme.secondaryContainer.withOpacity(0.7), padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 0), visualDensity: VisualDensity.compact, side: BorderSide.none, ), ); } ),
+              // --- Updated Selector Builder ---
+              Selector<GameProvider, Tuple2<bool, bool>>(
+                 selector: (_, game) => Tuple2(game.isPaused, game.isCompleted),
+                 builder: (context, data, child) {
+                     final isPaused = data.item1;
+                     final isCompleted = data.item2;
+                     // Check condition before scheduling callback
+                     if (isCompleted && !_completionDialogShown) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                            // Double-check condition inside callback
+                            if(mounted && isCompleted && !_completionDialogShown) {
+                                final finalTime = Provider.of<GameProvider>(context, listen: false).elapsedTime;
+                                // Show the dialog FIRST
+                                _showCompletionDialog(context, finalTime);
+                                // Set the flag AFTER initiating showDialog
+                                setState(() { _completionDialogShown = true; }); // Moved setState here!
+                                if (kDebugMode) print("--- addPostFrameCallback: Dialog shown, flag set true ---");
+                            } else if (kDebugMode) { print("--- addPostFrameCallback: skipped (mounted=$mounted, completed=$isCompleted, shown=$_completionDialogShown) ---"); }
+                        });
+                     }
+                     // Return Pause/Play button (unchanged)
+                     return IconButton( icon: Icon(isPaused ? Icons.play_arrow : Icons.pause, color: isCompleted ? Colors.grey : null), tooltip: isPaused ? 'Resume' : 'Pause',
+                       onPressed: isCompleted ? null : () { final game = Provider.of<GameProvider>(context, listen: false); if (game.isPaused) { game.resumeGame(); } else { game.pauseGame(); } }, );
+                 }
+              ), // End Selector
+              IconButton( icon: const Icon(Icons.settings_outlined), tooltip: 'Settings', onPressed: () { _showSettingsSheet(context); }, ),
+           ], ), // End AppBar Actions
+      // ... (Body: Stack, Background, Bokeh, Confetti, SafeArea, Column, Timer, Grid, Stack for Controls/NewGame - unchanged) ...
+      body: Stack( children: [ Container( decoration: BoxDecoration( gradient: backgroundGradient ?? defaultFallbackGradient ) ),
+            if (_particlesInitialized) CustomPaint( painter: BokehPainter(particles: _particles ), size: MediaQuery.of(context).size, ), // No animation
+             Align( alignment: Alignment.topCenter, child: ConfettiWidget( confettiController: _confettiController, blastDirectionality: BlastDirectionality.explosive, shouldLoop: false, numberOfParticles: 20, gravity: 0.1, emissionFrequency: 0.03, maxBlastForce: 20, minBlastForce: 8, particleDrag: 0.05, colors: settingsProvider.selectedPalette.colors, createParticlePath: (size) => Path()..addOval(Rect.fromCircle(center: Offset.zero, radius: size.width / 2)), ), ),
+            SafeArea( child: Padding( padding: const EdgeInsets.all(12.0),
+                child: Column( children: <Widget>[ Padding( padding: const EdgeInsets.symmetric(vertical: 10.0), child: Consumer<SettingsProvider>( builder: (context, settings, child) { return settings.timerEnabled ? Center(child: TimerWidget()) : const SizedBox(height: 50); }, ), ), const SizedBox(height: 10),
+                    Expanded( child: Center( child: AspectRatio( aspectRatio: 1.0, child: SudokuGridWidget() ) ) ), const SizedBox(height: 15),
+                    Stack( alignment: Alignment.center, children: [ Visibility( visible: !gameProvider.isCompleted, maintainState: true, maintainAnimation: true, maintainSize: true, child: Column( mainAxisSize: MainAxisSize.min, children: const [ PaletteSelectorWidget(), SizedBox(height: 15), GameControls(), ], ), ),
+                        Visibility( visible: gameProvider.isCompleted, child: Padding( padding: const EdgeInsets.symmetric(vertical: 20.0), child: Center(
                               child: ElevatedButton.icon( icon: const Icon(Icons.refresh), label: Text('New Game', style: GoogleFonts.nunito(fontSize: 18)),
-                                style: ElevatedButton.styleFrom( /* ... Button Style ... */ backgroundColor: currentTheme.colorScheme.primaryContainer, foregroundColor: currentTheme.colorScheme.onPrimaryContainer, padding: const EdgeInsets.symmetric(horizontal: 35, vertical: 18), textStyle: GoogleFonts.nunito(fontSize: 18, fontWeight: FontWeight.w600), elevation: 3, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)), ),
-                                onPressed: () { final game = Provider.of<GameProvider>(context, listen: false); final settings = Provider.of<SettingsProvider>(context, listen: false); final int initialDifficulty = game.initialDifficultySelection ?? 1;
-                                  if (initialDifficulty == -1) { settings.selectRandomPalette(); }
-                                  if (mounted) { setState(() { _completionDialogShown = false; }); }
-                                  game.loadNewPuzzle(difficulty: initialDifficulty); _regenerateBokehParticles(); }, ), ), ), ), ], ),
-                    const SizedBox(height: 10),
-                  ], ), ), ), ], ), ); }
+                                style: ElevatedButton.styleFrom( backgroundColor: currentTheme.colorScheme.primaryContainer, foregroundColor: currentTheme.colorScheme.onPrimaryContainer, padding: const EdgeInsets.symmetric(horizontal: 35, vertical: 18), textStyle: GoogleFonts.nunito(fontSize: 18, fontWeight: FontWeight.w600), elevation: 3, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)), ),
+                                onPressed: () { final game = Provider.of<GameProvider>(context, listen: false); final settings = Provider.of<SettingsProvider>(context, listen: false); final int initialDifficulty = game.initialDifficultySelection ?? 1; if (initialDifficulty == -1) { settings.selectRandomPalette(); } if (mounted) { setState(() { _completionDialogShown = false; }); } game.loadNewPuzzle(difficulty: initialDifficulty); _regenerateBokehParticles(); }, ), ), ), ), ], ),
+                    const SizedBox(height: 10), ], ), ), ), ], ), ); }
 
-} // End _GameScreenState
+} //State
 
 // Helper class Tuple2 (remains unchanged)
 class Tuple2<T1, T2> { final T1 item1; final T2 item2; Tuple2(this.item1, this.item2); @override bool operator ==(Object other) => other is Tuple2 && item1 == other.item1 && item2 == other.item2; @override int get hashCode => Object.hash(item1, item2); }
