@@ -1,20 +1,22 @@
 // File: lib/widgets/settings_content.dart
-// Location: ./lib/widgets/settings_content.dart
+// Location: Entire File
+// (More than 2 methods/areas affected by constant changes)
 
 import 'package:flutter/material.dart';
 import 'package:huedoku/models/color_palette.dart';
 import 'package:huedoku/providers/game_provider.dart';
 import 'package:huedoku/providers/settings_provider.dart';
 import 'package:provider/provider.dart';
-// Import theme definitions for keys and names
 import 'package:huedoku/themes.dart';
-import 'package:google_fonts/google_fonts.dart'; // Use font for consistency
+import 'package:google_fonts/google_fonts.dart';
+// --- UPDATED: Import constants ---
+import 'package:huedoku/constants.dart';
 
 // Widget containing the actual settings options, designed to be reusable
 class SettingsContent extends StatelessWidget {
   const SettingsContent({super.key});
 
-  // Helper to get user-friendly names for overlays
+  // Helper to get user-friendly names for overlays (Unchanged)
   String _cellOverlayDescription(CellOverlay overlay) {
     switch (overlay) {
       case CellOverlay.none: return 'Color Only';
@@ -23,50 +25,54 @@ class SettingsContent extends StatelessWidget {
     }
   }
 
-   // Helper to get user-friendly names for themes - Updated
+   // Helper to get user-friendly names for themes (Unchanged)
    String _themeDescription(String themeKey) {
        switch(themeKey) {
-           case lightThemeKey: return 'Light'; // Simplified name
-           case darkThemeKey: return 'Dark';  // Simplified name
-           // --- REMOVED Forest, Ocean, Cosmic cases ---
-           // case forestThemeKey: return 'Forest';
-           // case oceanThemeKey: return 'Ocean';
-           // case cosmicThemeKey: return 'Cosmic';
-           default: return 'Default'; // Fallback
+           case lightThemeKey: return 'Light';
+           case darkThemeKey: return 'Dark';
+           default: return 'Default';
        }
    }
 
   @override
   Widget build(BuildContext context) {
     final gameProvider = Provider.of<GameProvider>(context, listen: false);
-    final settingsProvider = Provider.of<SettingsProvider>(context); // Listen for changes
-    final currentTheme = Theme.of(context); // Get current theme for styling
+    final settingsProvider = Provider.of<SettingsProvider>(context);
+    final currentTheme = Theme.of(context);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      // --- UPDATED: Use constants for padding ---
+      padding: const EdgeInsets.symmetric(horizontal: kLargePadding, vertical: kDefaultPadding),
       child: ListView(
         shrinkWrap: true,
         children: <Widget>[
-          // --- Grab Handle ---
-           Center( child: Container( width: 40, height: 5, margin: const EdgeInsets.only(bottom: 15.0),
-               decoration: BoxDecoration( color: currentTheme.colorScheme.onSurface.withOpacity(0.3), borderRadius: BorderRadius.circular(12), ), ), ),
+          // --- UPDATED: Use constants for grab handle size/margin/opacity/radius ---
+           Center( child: Container(
+               width: kGrabHandleWidth,
+               height: kGrabHandleHeight,
+               margin: const EdgeInsets.only(bottom: kLargeSpacing),
+               decoration: BoxDecoration(
+                   color: currentTheme.colorScheme.onSurface.withOpacity(kMediumOpacity),
+                   borderRadius: BorderRadius.circular(kMediumRadius),
+               ),
+             ),
+           ),
 
           Text('Appearance', style: GoogleFonts.nunito( textStyle: currentTheme.textTheme.titleLarge, fontWeight: FontWeight.bold) ),
           const Divider(),
 
-         // --- Theme Selection (Dialog updated implicitly by iterating over smaller appThemes map) ---
+         // Theme Selection (Dialog logic unchanged)
           ListTile(
              contentPadding: EdgeInsets.zero,
              title: Text('Theme', style: GoogleFonts.nunito(textStyle: currentTheme.textTheme.titleMedium)),
              subtitle: Text( _themeDescription(settingsProvider.selectedThemeKey), style: GoogleFonts.nunito(textStyle: currentTheme.textTheme.bodySmall) ),
              trailing: const Icon(Icons.palette_outlined),
-             onTap: () async {
-               final selected = await showDialog<String>(
+             onTap: () async { /* ... Dialog Logic ... */
+                final selected = await showDialog<String>(
                  context: context,
                  builder: (BuildContext context) {
                    return SimpleDialog(
                      title: Text('Select Theme', style: GoogleFonts.nunito()),
-                     // Iterates only over available keys (Light, Dark)
                      children: appThemes.keys.map((themeKey) {
                        return SimpleDialogOption(
                          onPressed: () { Navigator.pop(context, themeKey); },
@@ -82,25 +88,38 @@ class SettingsContent extends StatelessWidget {
              },
            ),
 
-          // --- Palette Selection (No changes needed here) ---
+          // Palette Selection (Dialog logic unchanged)
           ListTile(
             contentPadding: EdgeInsets.zero,
             title: Text('Color Palette', style: GoogleFonts.nunito(textStyle: currentTheme.textTheme.titleMedium)),
             subtitle: Text( settingsProvider.selectedPalette.name, style: GoogleFonts.nunito(textStyle: currentTheme.textTheme.bodySmall) ),
             trailing: const Icon(Icons.color_lens_outlined),
-            onTap: () async { /* ... Palette Dialog Logic (unchanged) ... */
+            onTap: () async { /* ... Palette Dialog Logic ... */
               final selected = await showDialog<ColorPalette>( context: context, builder: (BuildContext context) {
                   return SimpleDialog( title: Text('Select Palette', style: GoogleFonts.nunito()),
                     children: ColorPalette.defaultPalettes.map((palette) {
                       return SimpleDialogOption( onPressed: () { Navigator.pop(context, palette); },
-                        child: Row( children: [ Row( children: palette.colors.take(5).map((c) => Container( width: 15, height: 15, color: c, margin: const EdgeInsets.only(right: 2) )).toList(), ),
-                            const SizedBox(width: 10), Text(palette.name, style: GoogleFonts.nunito()), ], ), ); }).toList(), ); }, );
+                        child: Row( children: [
+                            Row( children: palette.colors.take(5).map((c) =>
+                                // --- UPDATED: Use constant for icon size ---
+                                Container( width: kSmallIconSize, height: kSmallIconSize, color: c, margin: const EdgeInsets.only(right: 2) ) // Keep specific or make constant
+                            ).toList(), ),
+                            // --- UPDATED: Use constant for spacing ---
+                            const SizedBox(width: kMediumSpacing),
+                            Text(palette.name, style: GoogleFonts.nunito()),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  );
+                },
+              );
               if (selected != null) { Provider.of<SettingsProvider>(context, listen: false).setSelectedPalette(selected); }
             },
           ),
-          const SizedBox(height: 15),
+          // --- UPDATED: Use constant for spacing ---
+          const SizedBox(height: kLargeSpacing),
 
-          // --- Gameplay Section (Unchanged from previous step) ---
            Text('Gameplay', style: GoogleFonts.nunito( textStyle: currentTheme.textTheme.titleLarge, fontWeight: FontWeight.bold) ),
           const Divider(),
           ListTile( /* ... Cell Content ... */
@@ -113,10 +132,11 @@ class SettingsContent extends StatelessWidget {
                          return SimpleDialogOption( onPressed: () { Navigator.pop(context, overlay); }, child: Text(_cellOverlayDescription(overlay), style: GoogleFonts.nunito()), ); }).toList(), ); } );
                  if (selected != null) { Provider.of<SettingsProvider>(context, listen: false).setCellOverlay(selected); } },
            ),
-           // --- Accessibility Note (Unchanged) ---
+           // --- UPDATED: Use constant for opacity ---
           Text('Consider using "Patterns" or "Numbers" cell content, or the "Accessible Vibrant" palette if you are colorblind AF.',
-             style: GoogleFonts.nunito( textStyle: currentTheme.textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic), color: currentTheme.colorScheme.onSurface.withOpacity(0.7), ), ),
-           const SizedBox(height: 20),
+             style: GoogleFonts.nunito( textStyle: currentTheme.textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic), color: currentTheme.colorScheme.onSurface.withOpacity(kMediumHighOpacity), ), ),
+           // --- UPDATED: Use constant for spacing ---
+           const SizedBox(height: kExtraLargeSpacing),
           SwitchListTile( /* ... Highlight Peers ... */
              contentPadding: EdgeInsets.zero, title: Text('Highlight Peers', style: GoogleFonts.nunito(textStyle: currentTheme.textTheme.titleMedium)),
              subtitle: Text('Highlight row, column, and box', style: GoogleFonts.nunito(textStyle: currentTheme.textTheme.bodySmall)),
@@ -141,9 +161,10 @@ class SettingsContent extends StatelessWidget {
              subtitle: Text('Fade colors/patterns used in selection area', style: GoogleFonts.nunito(textStyle: currentTheme.textTheme.bodySmall)),
              value: settingsProvider.reduceUsedLocalOptions, onChanged: (value) { Provider.of<SettingsProvider>(context, listen: false).setReduceUsedLocalOptions(value); },
              activeColor: currentTheme.colorScheme.primary, ),
-          const SizedBox(height: 20),
+          // --- UPDATED: Use constant for spacing ---
+          const SizedBox(height: kExtraLargeSpacing),
 
-          
+
         ],
       ),
     );

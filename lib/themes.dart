@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:huedoku/constants.dart';
 
 // --- Define Theme Keys ---
 const String lightThemeKey = 'light';
@@ -64,32 +65,51 @@ ThemeData _buildLightTheme() {
 
     // --- Define Light Gradient ---
     const lightGradient = LinearGradient(
-        // Soft cyan/blue to light lavender/pink
         colors: [ Color(0xFFE0F7FA), Color(0xFFE1F5FE), Color(0xFFF3E5F5) ],
-        // Changed angle: Top Center to Bottom Center
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
+    );
+
+    // --- UPDATED: Use Constants for radii and padding ---
+    final baseInputBorder = OutlineInputBorder(
+        borderRadius: BorderRadius.circular(kSmallRadius), // Use constant
+        borderSide: BorderSide.none,
     );
 
     return baseTheme.copyWith(
         colorScheme: colorScheme,
         scaffoldBackgroundColor: colorScheme.background,
-        appBarTheme: AppBarTheme( /* ... appBar style ... */
-            backgroundColor: colorScheme.surface.withOpacity(0.5), foregroundColor: colorScheme.onSurface, elevation: 0,
-            titleTextStyle: GoogleFonts.nunito( fontWeight: FontWeight.bold, fontSize: 20, color: colorScheme.onSurface ), ),
-         floatingActionButtonTheme: FloatingActionButtonThemeData( /* ... fab style ... */
-             backgroundColor: colorScheme.secondaryContainer, foregroundColor: colorScheme.onSecondaryContainer, elevation: 2,
-             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_mediumRadius)), ),
-        dialogTheme: DialogTheme( /* ... dialog style ... */
-            backgroundColor: colorScheme.surface, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_mediumRadius)), ),
-        cardTheme: CardTheme( /* ... card style ... */
-           elevation: 0, color: colorScheme.surfaceVariant.withOpacity(0.5), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_mediumRadius)), ),
-        inputDecorationTheme: InputDecorationTheme( /* ... input style ... */
-             filled: true, fillColor: colorScheme.onSurface.withOpacity(0.05), border: _baseInputBorder, enabledBorder: _baseInputBorder,
-             focusedBorder: _baseInputBorder, contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), ),
+        appBarTheme: AppBarTheme(
+            backgroundColor: colorScheme.surface.withOpacity(kHighMediumOpacity), // Example constant
+            foregroundColor: colorScheme.onSurface,
+            elevation: 0, // Can be a constant like kZeroElevation if needed
+            titleTextStyle: GoogleFonts.nunito( fontWeight: FontWeight.bold, fontSize: kLargeFontSize, color: colorScheme.onSurface ), // Use constant
+        ),
+         floatingActionButtonTheme: FloatingActionButtonThemeData(
+             backgroundColor: colorScheme.secondaryContainer,
+             foregroundColor: colorScheme.onSecondaryContainer,
+             elevation: kDefaultElevation, // Use constant
+             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kMediumRadius)), // Use constant
+         ),
+        dialogTheme: DialogTheme(
+            backgroundColor: colorScheme.surface,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kMediumRadius)), // Use constant
+        ),
+        cardTheme: CardTheme(
+           elevation: 0,
+           color: colorScheme.surfaceVariant.withOpacity(kHighMediumOpacity), // Example constant
+           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kMediumRadius)), // Use constant
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+             filled: true,
+             fillColor: colorScheme.onSurface.withOpacity(0.05), // Keep specific value or define constant
+             border: baseInputBorder,
+             enabledBorder: baseInputBorder,
+             focusedBorder: baseInputBorder,
+             contentPadding: const EdgeInsets.symmetric(horizontal: kLargePadding, vertical: kMediumPadding), // Use constants
+        ),
         textTheme: GoogleFonts.nunitoTextTheme(baseTheme.textTheme).apply( bodyColor: colorScheme.onBackground, displayColor: colorScheme.onBackground, ),
          visualDensity: VisualDensity.adaptivePlatformDensity,
-         // --- Add Gradient Extension ---
          extensions: const <ThemeExtension<dynamic>>[
             AppGradients(backgroundGradient: lightGradient),
          ],
@@ -100,47 +120,57 @@ ThemeData _buildLightTheme() {
 ThemeData _buildDarkTheme() {
     final baseTheme = ThemeData.dark(useMaterial3: true);
     final colorScheme = ColorScheme.fromSeed(
-        seedColor: Colors.teal, // Or change seed if you want different component colors
+        seedColor: Colors.teal,
         brightness: Brightness.dark,
-        // Optionally fine-tune scheme colors if needed
-        // primary: Colors.teal[300], // Example adjustment
-        // background: const Color(0xFF0A0A10), // Example: Very dark background
     );
 
     // --- Define Darker Gradient ---
     const darkGradient = LinearGradient(
-      // Very Dark Blue/Purple -> Dark Blue/Black -> Dark Teal/Green
-      colors: [
-         Color(0xFF10101F), // Near black with blue/purple tint
-         Color(0xFF1A1A2E), // Dark blue/purple (like original Cosmic theme bg)
-         Color(0xFF003333), // Very dark teal/green
-        ],
-      // Keep the angle from previous step, or adjust if desired
+      colors: [ Color(0xFF10101F), Color(0xFF1A1A2E), Color(0xFF003333), ],
       begin: Alignment.topLeft,
-      end: Alignment(0.8, 1.0),
+      end: Alignment(0.8, 1.0), // Keep specific or define constant if reused
+    );
+
+    // --- UPDATED: Use Constants for radii and padding ---
+     final baseInputBorder = OutlineInputBorder(
+        borderRadius: BorderRadius.circular(kSmallRadius), // Use constant
+        borderSide: BorderSide.none,
     );
 
     return baseTheme.copyWith(
         colorScheme: colorScheme,
-        // You might want to adjust the base scaffold background too for consistency
-        // scaffoldBackgroundColor: const Color(0xFF0A0A10), // Example
-        scaffoldBackgroundColor: colorScheme.background, // Default scheme background
-        appBarTheme: AppBarTheme( /* ... appBar style ... */
-            backgroundColor: colorScheme.surface.withOpacity(0.5), foregroundColor: colorScheme.onSurface, elevation: 0,
-             titleTextStyle: GoogleFonts.nunito( fontWeight: FontWeight.bold, fontSize: 20, color: colorScheme.onSurface ), ),
-         floatingActionButtonTheme: FloatingActionButtonThemeData( /* ... fab style ... */
-             backgroundColor: colorScheme.secondaryContainer, foregroundColor: colorScheme.onSecondaryContainer, elevation: 2,
-             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_mediumRadius)), ),
-        dialogTheme: DialogTheme( /* ... dialog style ... */
-            backgroundColor: colorScheme.surface, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_mediumRadius)), ),
-         cardTheme: CardTheme( /* ... card style ... */
-           elevation: 0, color: colorScheme.surfaceVariant.withOpacity(0.5), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_mediumRadius)), ),
-         inputDecorationTheme: InputDecorationTheme( /* ... input style ... */
-             filled: true, fillColor: colorScheme.onSurface.withOpacity(0.05), border: _baseInputBorder, enabledBorder: _baseInputBorder,
-             focusedBorder: _baseInputBorder, contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), ),
+        scaffoldBackgroundColor: colorScheme.background,
+        appBarTheme: AppBarTheme(
+            backgroundColor: colorScheme.surface.withOpacity(kHighMediumOpacity), // Example constant
+            foregroundColor: colorScheme.onSurface,
+            elevation: 0,
+            titleTextStyle: GoogleFonts.nunito( fontWeight: FontWeight.bold, fontSize: kLargeFontSize, color: colorScheme.onSurface ), // Use constant
+        ),
+         floatingActionButtonTheme: FloatingActionButtonThemeData(
+             backgroundColor: colorScheme.secondaryContainer,
+             foregroundColor: colorScheme.onSecondaryContainer,
+             elevation: kDefaultElevation, // Use constant
+             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kMediumRadius)), // Use constant
+         ),
+        dialogTheme: DialogTheme(
+            backgroundColor: colorScheme.surface,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kMediumRadius)), // Use constant
+         ),
+         cardTheme: CardTheme(
+           elevation: 0,
+           color: colorScheme.surfaceVariant.withOpacity(kHighMediumOpacity), // Example constant
+           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kMediumRadius)), // Use constant
+         ),
+         inputDecorationTheme: InputDecorationTheme(
+             filled: true,
+             fillColor: colorScheme.onSurface.withOpacity(0.05),
+             border: baseInputBorder,
+             enabledBorder: baseInputBorder,
+             focusedBorder: baseInputBorder,
+             contentPadding: const EdgeInsets.symmetric(horizontal: kLargePadding, vertical: kMediumPadding), // Use constants
+        ),
         textTheme: GoogleFonts.nunitoTextTheme(baseTheme.textTheme).apply( bodyColor: colorScheme.onBackground, displayColor: colorScheme.onBackground, ),
          visualDensity: VisualDensity.adaptivePlatformDensity,
-         // --- Add Gradient Extension ---
           extensions: const <ThemeExtension<dynamic>>[
              AppGradients(backgroundGradient: darkGradient),
           ],

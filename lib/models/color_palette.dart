@@ -2,15 +2,16 @@
 // Location: ./lib/models/color_palette.dart
 
 import 'package:flutter/material.dart';
+import 'package:huedoku/constants.dart';
 
 // Represents a single palette available in the game
 class ColorPalette {
   final String name;
-  final List<Color> colors; // Should contain exactly 9 distinct colors
+  final List<Color> colors; // Should contain exactly kPaletteSize distinct colors
 
   // Use final instead of const for constructor if colors aren't always const
   ColorPalette({required this.name, required this.colors})
-      : assert(colors.length == 9, 'Palette must contain exactly 9 colors.');
+      : assert(colors.length == kPaletteSize, 'Palette must contain exactly $kPaletteSize colors.'); // Use constant
 
   // Use static final for palettes since Color() isn't always const
   static final ColorPalette classic = ColorPalette(

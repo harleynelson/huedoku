@@ -1,5 +1,6 @@
 // File: lib/providers/game_provider.dart
-// Location: ./lib/providers/game_provider.dart
+// Location: Entire File
+// (More than 2 methods affected by constant changes)
 
 import 'dart:async';
 import 'dart:math';
@@ -7,6 +8,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:huedoku/models/color_palette.dart';
 import 'package:huedoku/models/sudoku_cell_data.dart';
+// --- UPDATED: Import constants ---
+import 'package:huedoku/constants.dart';
 
 const Map<int, String> difficultyLabels = {
   -1: "Random", 0: "Easy", 1: "Medium", 2: "Hard", 3: "Painful",
@@ -28,7 +31,8 @@ class GameProvider extends ChangeNotifier {
   bool _isPaused = false;
   bool _isCompleted = false;
   final List<List<List<SudokuCellData>>> _history = [];
-  final int _maxHistory = 20;
+  // --- UPDATED: Use constant for max history ---
+  final int _maxHistory = kMaxHistory;
 
   // --- NEW: Flag for intro number animation ---
   bool _runIntroNumberAnimation = false;
@@ -51,13 +55,15 @@ class GameProvider extends ChangeNotifier {
   void loadNewPuzzle({int difficulty = 1}) {
       _initialDifficultySelection = difficulty;
       int actualDifficulty;
+      // --- UPDATED: Use random.nextInt(4) directly, no constant needed here ---
       if (difficulty == -1) { actualDifficulty = _random.nextInt(4); }
-      else { actualDifficulty = difficulty.clamp(0, 3); }
+      else { actualDifficulty = difficulty.clamp(0, 3); } // Keep clamp as logic
       _currentPuzzleDifficulty = actualDifficulty;
 
       if (kDebugMode) { print("Loading new puzzle. Initial selection: $difficulty -> Actual difficulty: $actualDifficulty (${difficultyLabels[actualDifficulty]})"); }
 
-      _solutionBoard = List.generate(9, (_) => List.generate(9, (_) => null));
+      // --- UPDATED: Use constants for grid size ---
+      _solutionBoard = List.generate(kGridSize, (_) => List.generate(kGridSize, (_) => null));
       if (!_generateSolvedBoard(_solutionBoard)) {
          if (kDebugMode) print("Error: Failed to generate a solved Sudoku board.");
          _isPuzzleLoaded = false; _currentPuzzleDifficulty = null; _initialDifficultySelection = null;
@@ -75,72 +81,69 @@ class GameProvider extends ChangeNotifier {
       _isPuzzleLoaded = true; _isCompleted = false; _isPaused = false;
       _selectedRow = null; _selectedCol = null; _isEditingCandidates = false;
       _history.clear(); resetTimer(); startTimer();
-      // --- NEW: Reset intro animation flag on new puzzle ---
       _runIntroNumberAnimation = false;
       notifyListeners();
   }
 
-  // --- Methods to control intro animation flag ---
+  // --- Methods to control intro animation flag (Unchanged) ---
   void triggerIntroNumberAnimation() {
     if (!_runIntroNumberAnimation) {
       _runIntroNumberAnimation = true;
       notifyListeners();
-      // Optionally, set a timer to turn it off automatically after a duration
-      // Timer(Duration(seconds: 3), () { // Example duration
-      //   resetIntroNumberAnimation();
-      // });
     }
   }
 
   void resetIntroNumberAnimation() {
     if (_runIntroNumberAnimation) {
       _runIntroNumberAnimation = false;
-      // Do we need to notify here? Maybe not, depends on usage.
-      // Let's notify for now to be safe.
       notifyListeners();
     }
   }
-  // --- End NEW Methods ---
 
-  // --- _generateSolvedBoard (unchanged) ---
+  // --- _generateSolvedBoard (Uses constants implicitly via kGridSize) ---
   bool _generateSolvedBoard(List<List<int?>> board) {
     int? row, col; bool foundEmpty=false;
-    for(row=0; row!<9; row++){for(col=0; col!<9; col++){if(board[row][col]==null){foundEmpty=true; break;}}if(foundEmpty)break;}
+    for(row=0; row!<kGridSize; row++){for(col=0; col!<kGridSize; col++){if(board[row][col]==null){foundEmpty=true; break;}}if(foundEmpty)break;}
     if(!foundEmpty)return true;
-    List<int> nums=List.generate(9,(i)=>i)..shuffle(_random);
+    List<int> nums=List.generate(kGridSize,(i)=>i)..shuffle(_random);
     for(int n in nums){if(_isValidPlacementInternal(board,row!,col!,n)){board[row][col]=n;if(_generateSolvedBoard(board))return true;board[row][col]=null;}}
     return false;
   }
 
-  // --- _createUniquePuzzleFromSolvedBoard (unchanged) ---
+  // --- _createUniquePuzzleFromSolvedBoard (Uses constants) ---
   List<List<SudokuCellData>>? _createUniquePuzzleFromSolvedBoard(List<List<int?>> solvedBoard, int actualDifficulty) {
       int cellsToRemove;
+      // --- UPDATED: Use difficulty constants ---
       switch (actualDifficulty) {
-          case 0: cellsToRemove = 28; break; // Easy
-          case 1: cellsToRemove = 38; break; // Medium
-          case 2: cellsToRemove = 47; break; // Hard
-          case 3: cellsToRemove = 53; break; // Painful
-          default: cellsToRemove = 42;
+          case 0: cellsToRemove = kDifficultyEasyCellsToRemove; break; // Easy
+          case 1: cellsToRemove = kDifficultyMediumCellsToRemove; break; // Medium
+          case 2: cellsToRemove = kDifficultyHardCellsToRemove; break; // Hard
+          case 3: cellsToRemove = kDifficultyPainfulCellsToRemove; break; // Painful
+          default: cellsToRemove = kDifficultyMediumCellsToRemove; // Fallback to Medium
       }
-      cellsToRemove = min(cellsToRemove, 60);
+      // cellsToRemove = min(cellsToRemove, 60); // Keep logic, 60 isn't necessarily a named constant
 
-      List<List<SudokuCellData>> puzzleBoardData = List.generate( 9,
-         (r) => List.generate(9, (c) => SudokuCellData(value: solvedBoard[r][c], isFixed: true))
+      // --- UPDATED: Use constants for grid size ---
+      List<List<SudokuCellData>> puzzleBoardData = List.generate( kGridSize,
+         (r) => List.generate(kGridSize, (c) => SudokuCellData(value: solvedBoard[r][c], isFixed: true))
       );
-      List<List<int?>> currentPuzzleState = List.generate(9, (r) => List.from(solvedBoard[r]));
+      List<List<int?>> currentPuzzleState = List.generate(kGridSize, (r) => List.from(solvedBoard[r]));
 
       int removedCount = 0;
       int attempts = 0;
-      final int maxTotalAttempts = 81 * 2;
+      // --- UPDATED: Use constants for grid size in max attempts ---
+      final int maxTotalAttempts = kGridSize * kGridSize * 2;
 
-      List<int> cellIndices = List.generate(81, (i) => i)..shuffle(_random);
+      // --- UPDATED: Use constants for grid size in indices ---
+      List<int> cellIndices = List.generate(kGridSize * kGridSize, (i) => i)..shuffle(_random);
 
       for (int index in cellIndices) {
           if (removedCount >= cellsToRemove || attempts >= maxTotalAttempts) break;
           attempts++;
 
-          int r = index ~/ 9;
-          int c = index % 9;
+          // --- UPDATED: Use constants for grid size ---
+          int r = index ~/ kGridSize;
+          int c = index % kGridSize;
 
           if (currentPuzzleState[r][c] == null) continue;
 
@@ -158,8 +161,9 @@ class GameProvider extends ChangeNotifier {
 
       if (kDebugMode) print("Puzzle Generation: Target removals: $cellsToRemove, Actual removals: $removedCount, Attempts: $attempts");
 
-      for (int r = 0; r < 9; r++) {
-         for (int c = 0; c < 9; c++) {
+      // --- UPDATED: Use constants for grid size ---
+      for (int r = 0; r < kGridSize; r++) {
+         for (int c = 0; c < kGridSize; c++) {
             if (currentPuzzleState[r][c] != null) {
                puzzleBoardData[r][c] = SudokuCellData(value: currentPuzzleState[r][c], isFixed: true);
             } else {
@@ -172,12 +176,12 @@ class GameProvider extends ChangeNotifier {
   }
 
 
-  // --- _countSolutions (unchanged) ---
+  // --- _countSolutions (Uses constants implicitly via kGridSize) ---
   int _countSolutions(List<List<int?>> board) {
     int? row, col;
     bool foundEmpty = false;
-    for (row = 0; row! < 9; row++) {
-      for (col = 0; col! < 9; col++) {
+    for (row = 0; row! < kGridSize; row++) {
+      for (col = 0; col! < kGridSize; col++) {
         if (board[row][col] == null) {
           foundEmpty = true;
           break;
@@ -191,7 +195,7 @@ class GameProvider extends ChangeNotifier {
     }
 
     int count = 0;
-    for (int num = 0; num < 9; num++) {
+    for (int num = 0; num < kGridSize; num++) {
       if (_isValidPlacementInternal(board, row!, col!, num)) {
         board[row][col] = num;
         count += _countSolutions(board);
@@ -205,28 +209,29 @@ class GameProvider extends ChangeNotifier {
   }
 
 
-  // --- _isValidPlacementInternal (unchanged) ---
+  // --- _isValidPlacementInternal (Uses constants) ---
   bool _isValidPlacementInternal(List<List<int?>> board, int row, int col, int num) {
-     for(int c=0;c<9;c++){ if(board[row][c]==num) return false; }
-     for(int r=0;r<9;r++){ if(board[r][col]==num) return false; }
-     int startRow=(row~/3)*3; int startCol=(col~/3)*3;
-     for(int r=0;r<3;r++){ for(int c=0;c<3;c++){ if(board[startRow+r][startCol+c]==num) return false; } }
+     // --- UPDATED: Use constants for grid/box size ---
+     for(int c=0;c<kGridSize;c++){ if(board[row][c]==num) return false; }
+     for(int r=0;r<kGridSize;r++){ if(board[r][col]==num) return false; }
+     int startRow=(row~/kBoxSize)*kBoxSize; int startCol=(col~/kBoxSize)*kBoxSize;
+     for(int r=0;r<kBoxSize;r++){ for(int c=0;c<kBoxSize;c++){ if(board[startRow+r][startCol+c]==num) return false; } }
      return true;
   }
 
-  // --- isValidPlacementForCell (unchanged) ---
+  // --- isValidPlacementForCell (Uses constants implicitly) ---
   bool isValidPlacementForCell(int row, int col, int num) {
-      List<List<int?>> tempBoard = List.generate(9, (r) => List.generate(9, (c) => _board[r][c].value));
+      List<List<int?>> tempBoard = List.generate(kGridSize, (r) => List.generate(kGridSize, (c) => _board[r][c].value));
       tempBoard[row][col] = null;
       return _isValidPlacementInternal(tempBoard, row, col, num);
   }
 
 
-  // --- updateBoardErrors (unchanged) ---
+  // --- updateBoardErrors (Uses constants implicitly) ---
   void updateBoardErrors(bool showErrors) {
      bool errorStateChanged = false;
-     for(int r=0; r<9; r++){
-       for(int c=0; c<9; c++){
+     for(int r=0; r<kGridSize; r++){
+       for(int c=0; c<kGridSize; c++){
          SudokuCellData cell = _board[r][c];
          int? cellValue = cell.value;
          bool previousError = cell.hasError;
@@ -249,15 +254,15 @@ class GameProvider extends ChangeNotifier {
      }
   }
 
-  // --- _isBoardStateValid (unchanged) ---
+  // --- _isBoardStateValid (Uses constants implicitly) ---
   bool _isBoardStateValid(List<List<SudokuCellData>> boardData) {
-     List<List<int?>> boardValues = List.generate(9, (r) => List.generate(9, (c) {
+     List<List<int?>> boardValues = List.generate(kGridSize, (r) => List.generate(kGridSize, (c) {
         if (boardData[r][c].value == null) return -1;
         return boardData[r][c].value;
      }));
 
-     for (int r = 0; r < 9; r++) {
-        for (int c = 0; c < 9; c++) {
+     for (int r = 0; r < kGridSize; r++) {
+        for (int c = 0; c < kGridSize; c++) {
            int? currentValue = boardValues[r][c];
            if (currentValue == -1 || currentValue == null) return false;
            boardValues[r][c] = null;
@@ -270,10 +275,10 @@ class GameProvider extends ChangeNotifier {
      return true;
   }
 
-   // --- _isBoardCompleteAndCorrect (unchanged) ---
+   // --- _isBoardCompleteAndCorrect (Uses constants implicitly) ---
    bool _isBoardCompleteAndCorrect() {
-       for(int r=0; r<9; r++){
-          for(int c=0; c<9; c++){
+       for(int r=0; r<kGridSize; r++){
+          for(int c=0; c<kGridSize; c++){
              if(_board[r][c].value == null) return false;
           }
        }
@@ -281,7 +286,7 @@ class GameProvider extends ChangeNotifier {
    }
 
 
-   // --- provideHint (unchanged) ---
+   // --- provideHint (Unchanged in terms of constants) ---
     bool provideHint({required bool showErrors}) {
     if (_selectedRow != null && _selectedCol != null && !_isCompleted) {
       final cell = _board[_selectedRow!][_selectedCol!];
@@ -295,7 +300,7 @@ class GameProvider extends ChangeNotifier {
            notifyListeners(); return true;
         } } } return false; }
 
-  // --- Cell Interaction (unchanged) ---
+  // --- Cell Interaction (Unchanged in terms of constants) ---
   void selectCell(int row, int col) { if(_selectedRow==row&&_selectedCol==col){_selectedRow=null;_selectedCol=null;}else{_selectedRow=row;_selectedCol=col;} notifyListeners(); }
 
   void placeValue(int colorIndex, {required bool showErrors}) {
@@ -309,12 +314,28 @@ class GameProvider extends ChangeNotifier {
   void toggleEditMode() { _isEditingCandidates=!_isEditingCandidates; notifyListeners(); }
   void eraseSelectedCell({required bool showErrors}) { if(_selectedRow!=null&&_selectedCol!=null&&!_isCompleted){final cell=_board[_selectedRow!][_selectedCol!]; if(!cell.isFixed){if(cell.value!=null||cell.candidates.isNotEmpty){_saveStateToHistory();cell.value=null;cell.candidates.clear();updateBoardErrors(showErrors);notifyListeners();}}} }
 
-  // --- Back/Undo (unchanged) ---
-  void _saveStateToHistory() { List<List<SudokuCellData>> bc=List.generate(9,(r)=>List.generate(9,(c)=>_board[r][c].clone()));_history.add(bc);if(_history.length>_maxHistory){_history.removeAt(0);} }
+  // --- Back/Undo (Uses constant) ---
+  void _saveStateToHistory() {
+    // --- UPDATED: Use constants for grid size ---
+    List<List<SudokuCellData>> bc=List.generate(kGridSize,(r)=>List.generate(kGridSize,(c)=>_board[r][c].clone()));
+    _history.add(bc);
+    if(_history.length > _maxHistory){ // Uses constant _maxHistory
+      _history.removeAt(0);
+    }
+  }
   void performUndo({required bool showErrors}) { if(_history.isNotEmpty){_board=_history.removeLast();updateBoardErrors(showErrors);_isCompleted=_isBoardCompleteAndCorrect();if(_isCompleted){stopTimer();}else if(!_isPaused&&_timer==null){startTimer();}notifyListeners();}else{if(kDebugMode)print("Undo history is empty.");} }
 
-  // --- Timer Control (unchanged) ---
-   void startTimer() { if (_timer != null && _timer!.isActive) return; _timer = Timer.periodic(const Duration(seconds: 1), (timer) { if (!_isPaused && !_isCompleted) { _elapsedTime += const Duration(seconds: 1); notifyListeners(); } }); }
+  // --- Timer Control (Uses constant) ---
+   void startTimer() {
+       if (_timer != null && _timer!.isActive) return;
+       // --- UPDATED: Use constant for interval ---
+       _timer = Timer.periodic(kTimerUpdateInterval, (timer) {
+          if (!_isPaused && !_isCompleted) {
+            _elapsedTime += kTimerUpdateInterval; // Use constant
+            notifyListeners();
+          }
+       });
+   }
    void pauseTimer(){_isPaused=true;notifyListeners();}
    void resumeTimer(){_isPaused=false;if(_timer==null||!_timer!.isActive){startTimer();}notifyListeners();}
    void stopTimer(){_timer?.cancel();_timer=null;notifyListeners();}
@@ -322,9 +343,40 @@ class GameProvider extends ChangeNotifier {
    void pauseGame(){pauseTimer();notifyListeners();}
    void resumeGame(){resumeTimer();notifyListeners();}
 
-  // --- Palette Dimming Helpers (unchanged) ---
-  bool isColorGloballyComplete(int colorIndex) { if (!_isPuzzleLoaded || _solutionBoard.isEmpty || _board.isEmpty) return false; int solutionCount = 0; int boardCorrectCount = 0; for (int r = 0; r < 9; r++) { for (int c = 0; c < 9; c++) { if (_solutionBoard[r][c] == colorIndex) { solutionCount++; if (_board[r][c].value == colorIndex && !_board[r][c].hasError) { boardCorrectCount++; } } } } return solutionCount == 9 && boardCorrectCount == 9; }
-  bool isColorUsedInSelectionContext(int colorIndex, int row, int col) { if (!_isPuzzleLoaded || _board.isEmpty) return false; for (int c = 0; c < 9; c++) { if (_board[row][c].value == colorIndex) return true; } for (int r = 0; r < 9; r++) { if (_board[r][col].value == colorIndex) return true; } int startRow = (row ~/ 3) * 3; int startCol = (col ~/ 3) * 3; for (int r = 0; r < 3; r++) { for (int c = 0; c < 3; c++) { if (_board[startRow + r][startCol + c].value == colorIndex) return true; }} return false; }
+  // --- Palette Dimming Helpers (Uses constants implicitly/explicitly) ---
+  bool isColorGloballyComplete(int colorIndex) {
+     if (!_isPuzzleLoaded || _solutionBoard.isEmpty || _board.isEmpty) return false;
+     int solutionCount = 0; int boardCorrectCount = 0;
+     // --- UPDATED: Use constants for grid size ---
+     for (int r = 0; r < kGridSize; r++) {
+        for (int c = 0; c < kGridSize; c++) {
+           if (_solutionBoard[r][c] == colorIndex) {
+              solutionCount++;
+              if (_board[r][c].value == colorIndex && !_board[r][c].hasError) {
+                 boardCorrectCount++;
+              }
+           }
+        }
+     }
+     // --- UPDATED: Use constant for grid size ---
+     // Check if the color appears exactly kGridSize times in the solution and board
+     return solutionCount == kGridSize && boardCorrectCount == kGridSize;
+  }
+
+  bool isColorUsedInSelectionContext(int colorIndex, int row, int col) {
+      if (!_isPuzzleLoaded || _board.isEmpty) return false;
+      // --- UPDATED: Use constants for grid/box size ---
+      for (int c = 0; c < kGridSize; c++) { if (_board[row][c].value == colorIndex) return true; }
+      for (int r = 0; r < kGridSize; r++) { if (_board[r][col].value == colorIndex) return true; }
+      int startRow = (row ~/ kBoxSize) * kBoxSize;
+      int startCol = (col ~/ kBoxSize) * kBoxSize;
+      for (int r = 0; r < kBoxSize; r++) {
+         for (int c = 0; c < kBoxSize; c++) {
+            if (_board[startRow + r][startCol + c].value == colorIndex) return true;
+         }
+      }
+      return false;
+  }
 
   @override
   void dispose() { stopTimer(); super.dispose(); }
