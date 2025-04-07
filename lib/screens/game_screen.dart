@@ -23,6 +23,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/foundation.dart';
 // --- UPDATED: Import constants ---
 import 'package:huedoku/constants.dart';
+import 'package:share_plus/share_plus.dart';
 
 
 class GameScreen extends StatefulWidget {
@@ -167,65 +168,153 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _showCompletionDialog(BuildContext context, Duration finalTime) {
-      if (kDebugMode) { print("--- Completion Dialog: finalTime = $finalTime ---"); }
-      if (mounted) { setState(() { _completionDialogShown = true; }); }
-      _confettiController.play();
-      showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (BuildContext dialogContext) {
-              final ThemeData dialogTheme = Theme.of(dialogContext);
-              final TextTheme dialogTextTheme = dialogTheme.textTheme;
-              final Color? defaultDialogTextColor = dialogTextTheme.bodyMedium?.color;
-              return AlertDialog(
-                  // --- UPDATED: Use constant for radius ---
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kMediumRadius)),
-                  title: Row( children: [
-                     Icon(Icons.celebration_outlined, color: dialogTheme.colorScheme.primary),
-                     // --- UPDATED: Use constant for spacing ---
-                     const SizedBox(width: kSmallSpacing),
-                     Text('Congrats!', style: GoogleFonts.nunito(textStyle: dialogTextTheme.titleLarge)),
-                   ], ),
-                  content: Column( mainAxisSize: MainAxisSize.min, children: [
-                     Text('You solved it in:', style: GoogleFonts.nunito(textStyle: dialogTextTheme.bodyMedium)),
-                     // --- UPDATED: Use constant for spacing ---
-                     const SizedBox(height: kMediumSpacing),
-                     Text(
-                       _formatDuration(finalTime),
-                       style: GoogleFonts.nunito(
-                         // --- UPDATED: Use constant for font size multiplier ---
-                         fontSize: dialogTextTheme.headlineSmall!.fontSize! * 1.1, // Keep multiplier or make constant
-                         fontWeight: FontWeight.bold,
-                         color: defaultDialogTextColor ?? (dialogTheme.brightness == Brightness.dark ? Colors.white : Colors.black),
-                         fontFeatures: [const ui.FontFeature.tabularFigures()],
+  if (kDebugMode) { print("--- Completion Dialog: finalTime = $finalTime ---"); }
+  if (mounted) { setState(() { _completionDialogShown = true; }); }
+  _confettiController.play();
+
+  // Access providers and theme outside the builder for clarity
+  final gameProvider = Provider.of<GameProvider>(context, listen: false);
+  final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+  final ThemeData dialogTheme = Theme.of(context);
+  final TextTheme dialogTextTheme = dialogTheme.textTheme;
+  final bool isDark = dialogTheme.brightness == Brightness.dark;
+  final String difficultyLabel = difficultyLabels[gameProvider.currentPuzzleDifficulty ?? 1] ?? 'Medium';
+
+
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (BuildContext dialogContext) {
+      // --- Custom Dialog Look ---
+      return Dialog(
+        // --- UPDATED: Use constant for radius ---
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kLargeRadius)), // Larger radius
+        elevation: kHighElevation, // Add some elevation
+        backgroundColor: Colors.transparent, // Make standard background transparent
+        child: ClipRRect(
+          // --- UPDATED: Use constant for radius ---
+          borderRadius: BorderRadius.circular(kLargeRadius),
+          child: BackdropFilter(
+             // --- UPDATED: Use constant for blur ---
+            filter: ui.ImageFilter.blur(sigmaX: 8.0, sigmaY: 8.0), // Blur background
+            child: Container(
+               // --- UPDATED: Use constants for padding/opacity ---
+              padding: const EdgeInsets.all(kExtraLargePadding),
+              decoration: BoxDecoration(
+                // --- UPDATED: Use constant for opacity ---
+                color: dialogTheme.colorScheme.surface.withOpacity(isDark ? kHighOpacity : kVeryHighOpacity), // Use surface color with opacity
+                borderRadius: BorderRadius.circular(kLargeRadius),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  // --- Enhanced Title ---
+                  Icon(
+                    Icons.emoji_events_outlined, // Trophy Icon
+                    color: dialogTheme.colorScheme.primary,
+                    size: 40.0, // Larger icon
+                  ),
+                  // --- UPDATED: Use constant for spacing ---
+                  const SizedBox(height: kSmallSpacing),
+                  Text(
+                    'Puzzle Solved!',
+                    style: GoogleFonts.nunito(
+                        textStyle: dialogTextTheme.headlineSmall, // Larger title
+                        fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
+                  ),
+                  // --- UPDATED: Use constant for spacing ---
+                  const SizedBox(height: kMediumSpacing),
+                  Text(
+                    'Difficulty: $difficultyLabel', // Show difficulty
+                    style: GoogleFonts.nunito(
+                        textStyle: dialogTextTheme.bodyMedium),
+                     textAlign: TextAlign.center,
+                  ),
+                  // --- UPDATED: Use constant for spacing ---
+                  const SizedBox(height: kSmallSpacing), // Smaller space
+                  Text(
+                    'Your Time:',
+                    style: GoogleFonts.nunito(
+                        textStyle: dialogTextTheme.bodyMedium),
+                    textAlign: TextAlign.center,
+                  ),
+                  // --- UPDATED: Use constant for spacing ---
+                  const SizedBox(height: kSmallSpacing), // Smaller space
+                  Text(
+                    _formatDuration(finalTime),
+                    style: GoogleFonts.nunito(
+                       // --- UPDATED: Use constant for font size multiplier ---
+                      fontSize: dialogTextTheme.headlineMedium!.fontSize, // Larger time display
+                      fontWeight: FontWeight.bold,
+                      color: dialogTheme.colorScheme.primary, // Use primary color for time
+                      fontFeatures: const [ui.FontFeature.tabularFigures()],
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  // --- UPDATED: Use constant for spacing ---
+                  const SizedBox(height: kExtraLargeSpacing), // More space before buttons
+
+                  // --- Action Buttons ---
+                  Column( // Use Column for buttons
+                    crossAxisAlignment: CrossAxisAlignment.stretch, // Make buttons fill width
+                    children: [
+                       ElevatedButton.icon(
+                         icon: const Icon(Icons.share_outlined),
+                         label: Text('Brag to Friends!', style: GoogleFonts.nunito()),
+                         style: ElevatedButton.styleFrom(
+                           // --- UPDATED: Use constant for padding ---
+                           padding: const EdgeInsets.symmetric(vertical: kMediumPadding),
+                           backgroundColor: dialogTheme.colorScheme.secondaryContainer,
+                           foregroundColor: dialogTheme.colorScheme.onSecondaryContainer,
+                         ),
+                         onPressed: () {
+                            // --- Share Functionality ---
+                            final String timeStr = _formatDuration(finalTime);
+                            final String shareText = "I just solved a $difficultyLabel Rainboku puzzle in $timeStr! 🌈 Can you beat my time? #Rainboku #SudokuChallenge";
+                            Share.share(shareText);
+                         },
                        ),
-                       textAlign: TextAlign.center,
-                     ),
-                     // --- UPDATED: Use constant for spacing ---
-                     const SizedBox(height: kLargeSpacing),
-                   ], ),
-                  actions: <Widget>[
-                    TextButton( child: Text('New Game', style: GoogleFonts.nunito(textStyle: dialogTextTheme.labelLarge)),
-                      onPressed: () { /* ... New Game Logic (constants used inside provider) ... */
-                        final game = Provider.of<GameProvider>(context, listen: false);
-                        final settings = Provider.of<SettingsProvider>(context, listen: false);
-                        final int initialDifficulty = game.initialDifficultySelection ?? 1;
-                        if (initialDifficulty == -1) { settings.selectRandomPalette(); }
-                        if (mounted) { setState(() { _completionDialogShown = false; }); }
-                        Navigator.of(dialogContext).pop();
-                        game.loadNewPuzzle(difficulty: initialDifficulty);
-                        _regenerateBokehParticles();
-                        _startIntroAnimationSequenceIfNeeded();
-                      },
-                    ),
-                    TextButton( child: Text('Close', style: GoogleFonts.nunito(textStyle: dialogTextTheme.labelLarge)),
-                      onPressed: () { Navigator.of(dialogContext).pop(); },
-                    ),
-                  ],
-              );
-          },
+                       // --- UPDATED: Use constant for spacing ---
+                       const SizedBox(height: kSmallSpacing), // Space between buttons
+                       TextButton(
+                         child: Text('New Game', style: GoogleFonts.nunito(textStyle: dialogTextTheme.labelLarge)),
+                         onPressed: () {
+                           final int initialDifficulty = gameProvider.initialDifficultySelection ?? 1;
+                           if (initialDifficulty == -1) {
+                             settingsProvider.selectRandomPalette();
+                           }
+                           if (mounted) {
+                             setState(() { _completionDialogShown = false; });
+                           }
+                           Navigator.of(dialogContext).pop(); // Close the dialog first
+                           gameProvider.loadNewPuzzle(difficulty: initialDifficulty);
+                           _regenerateBokehParticles(); // Assuming this is still needed
+                           _startIntroAnimationSequenceIfNeeded(); // Assuming this is still needed
+                         },
+                       ),
+                       TextButton(
+                         child: Text('Close', style: GoogleFonts.nunito(textStyle: dialogTextTheme.labelLarge?.copyWith(color: dialogTheme.colorScheme.onSurface.withOpacity(0.7)))), // Slightly muted close
+                         onPressed: () {
+                           if (mounted) {
+                             setState(() { _completionDialogShown = false; });
+                           }
+                           Navigator.of(dialogContext).pop();
+                           // Optional: Decide if you want to pause the game or leave it completed
+                           // gameProvider.pauseGame();
+                         },
+                       ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       );
-  }
+    },
+  );
+}
 
 
   @override
