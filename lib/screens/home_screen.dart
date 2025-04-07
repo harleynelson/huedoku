@@ -94,9 +94,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final defaultFallbackGradient = LinearGradient( colors: [ currentTheme.colorScheme.surface, currentTheme.colorScheme.background, ], begin: Alignment.topLeft, end: Alignment.bottomRight, );
 
     final List<Color> retroColors = ColorPalette.retro.colors;
-    final List<Color> titleColors = retroColors.length >= 6
-        ? retroColors.sublist(0, 6)
-        : List.generate(6, (_) => currentTheme.colorScheme.primary);
+    final List<Color> titleColors = retroColors.length >= 8
+        ? retroColors.sublist(0, 8)
+        : List.generate(8, (_) => currentTheme.colorScheme.primary);
 
     return Scaffold(
       body: Stack(
@@ -128,7 +128,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           color: currentTheme.colorScheme.primary.withOpacity(kVeryHighOpacity),
                           shadows: [ Shadow( color: currentTheme.colorScheme.shadow.withOpacity(kLowMediumOpacity), blurRadius: 4, offset: const Offset(1, 2) ) ] // Keep specific or make constants
                        ) ),
-                       children: <TextSpan>[ TextSpan(text: 'R', style: TextStyle(color: titleColors[1])), TextSpan(text: 'a', style: TextStyle(color: titleColors[2])), TextSpan(text: 'i', style: TextStyle(color: titleColors[0])), TextSpan(text: 'n', style: TextStyle(color: titleColors[3])), TextSpan(text: 'b', style: TextStyle(color: titleColors[4])), TextSpan(text: 'o', style: TextStyle(color: titleColors[5])), const TextSpan(text: 'doku'), ],
+                       children: <TextSpan>[ TextSpan(text: 'R', style: TextStyle(color: titleColors[1])), TextSpan(text: 'a', style: TextStyle(color: titleColors[2])), TextSpan(text: 'i', style: TextStyle(color: titleColors[0])), TextSpan(text: 'n', style: TextStyle(color: titleColors[3])), TextSpan(text: 'b', style: TextStyle(color: titleColors[4])), TextSpan(text: 'o', style: TextStyle(color: titleColors[5])), TextSpan(text: 'k', style: TextStyle(color: titleColors[6])), TextSpan(text: 'u', style: TextStyle(color: titleColors[7])), ],
                      ),
                   ),
                   // --- UPDATED: Use constant for spacing ---

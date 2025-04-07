@@ -1,7 +1,6 @@
 // File: lib/constants.dart
 // Location: ./lib/constants.dart
 
-import 'package:flutter/material.dart';
 
 // --- Grid & Game Logic ---
 const int kGridSize = 9; // Standard Sudoku grid dimension (9x9)

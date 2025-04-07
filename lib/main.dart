@@ -35,7 +35,7 @@ class HuedokuApp extends StatelessWidget {
                                              : ThemeMode.light;
 
           return MaterialApp(
-            title: 'Rainbodoku',
+            title: 'Rainboku',
             themeMode: currentThemeMode, // Let the selected theme dictate the mode
             // Provide the selected theme as the primary theme
             theme: selectedThemeData,
