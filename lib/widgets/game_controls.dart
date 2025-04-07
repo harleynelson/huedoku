@@ -27,7 +27,7 @@ class GameControlsState extends State<GameControls> with SingleTickerProviderSta
     if (!mounted) return;
 
     // Define the hold duration
-    const Duration holdDuration = Duration(milliseconds: 1200); // Hold for 1.2 seconds
+    const Duration holdDuration = Duration(milliseconds: 2000); // Hold for 2 seconds
 
     // Cancel any previous hold timer
     _holdTimer?.cancel();
