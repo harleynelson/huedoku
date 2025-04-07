@@ -9,7 +9,7 @@ const int kPaletteSize = 9; // Number of colors/options in the game palette
 const int kMaxHistory = 20; // Maximum number of undo steps to store
 
 // Number of cells to remove for puzzle generation based on difficulty
-const int kDifficultyEasyCellsToRemove = 28;
+const int kDifficultyEasyCellsToRemove = 25;
 const int kDifficultyMediumCellsToRemove = 38;
 const int kDifficultyHardCellsToRemove = 47;
 const int kDifficultyPainfulCellsToRemove = 53; // Corresponds to 'Painful' difficulty

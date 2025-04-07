@@ -71,29 +71,47 @@ class GameProvider extends ChangeNotifier {
       // Try to generate a solvable board first
       if (!_generateSolvedBoard(_solutionBoard)) {
          if (kDebugMode) print("Error: Failed to generate a solved Sudoku board.");
-         _isPuzzleLoaded = false; _currentPuzzleDifficulty = null; _initialDifficultySelection = null; _currentPuzzleString = null; // Clear puzzle string on failure
-         notifyListeners(); return;
+         _isPuzzleLoaded = false; // Ensure it's false on failure
+         _currentPuzzleDifficulty = null;
+         _initialDifficultySelection = null;
+         _currentPuzzleString = null;
+         notifyListeners();
+         return;
       }
 
       // Then create the puzzle by removing cells
       var puzzleResult = _createUniquePuzzleFromSolvedBoard(_solutionBoard, actualDifficulty);
       if (puzzleResult == null) {
          if (kDebugMode) print("Error: Failed to create a unique puzzle. Retrying might be needed or fallback.");
-         // Fallback or error state
-         _isPuzzleLoaded = false; _currentPuzzleDifficulty = null; _initialDifficultySelection = null; _currentPuzzleString = null; // Clear puzzle string on failure
-         notifyListeners(); return;
+         _isPuzzleLoaded = false; // Ensure it's false on failure
+         _currentPuzzleDifficulty = null;
+         _initialDifficultySelection = null;
+         _currentPuzzleString = null;
+         notifyListeners();
+         return;
       }
       _board = puzzleResult;
 
-      // --- NEW: Generate and store the puzzle string ---
-      _generateAndStorePuzzleString();
+      // --- FIX: Set _isPuzzleLoaded BEFORE generating the string ---
+      _isPuzzleLoaded = true;
+      // --- END FIX ---
 
-      _isPuzzleLoaded = true; _isCompleted = false; _isPaused = false;
-      _selectedRow = null; _selectedCol = null; _isEditingCandidates = false;
+      // Now generate and store the puzzle string
+      _generateAndStorePuzzleString(); // This will now see _isPuzzleLoaded as true
+
+      // Reset other game state variables
+      _isCompleted = false;
+      _isPaused = false;
+      _selectedRow = null;
+      _selectedCol = null;
+      _isEditingCandidates = false;
       _history.clear();
       _hintsUsed = 0; // Reset hint counter
-      resetTimer(); startTimer();
+      resetTimer();
+      startTimer();
       _runIntroNumberAnimation = false;
+
+      // Notify listeners about the new game state
       notifyListeners();
   }
 
@@ -103,13 +121,14 @@ class GameProvider extends ChangeNotifier {
     if (kDebugMode) print("Debug: Entering _generateAndStorePuzzleString...");
     // --- End Debug Print ---
 
-    if (!_isPuzzleLoaded || _board.isEmpty) {
-      // --- Add Debug Print Reason ---
-      if (kDebugMode) print("Debug: Exiting _generateAndStorePuzzleString (puzzle not loaded or board empty). Setting string to null.");
-      // --- End Debug Print ---
-      _currentPuzzleString = null;
-      return;
-    }
+    // --- FIX: Remove the redundant check ---
+    // if (!_isPuzzleLoaded || _board.isEmpty) { // <-- REMOVE THIS CHECK
+    //   if (kDebugMode) print("Debug: Exiting _generateAndStorePuzzleString (puzzle not loaded or board empty). Setting string to null.");
+    //   _currentPuzzleString = null;
+    //   return;
+    // }
+    // --- END FIX ---
+
     StringBuffer sb = StringBuffer();
     String difficultyChar = 'M';
     if (_currentPuzzleDifficulty != null && difficultyLabels.containsKey(_currentPuzzleDifficulty)) {
@@ -124,19 +143,16 @@ class GameProvider extends ChangeNotifier {
     // --- End Debug Print ---
 
     sb.write('$difficultyChar:');
-    try { // Add try-catch for safety during iteration
+    try {
       for (int r = 0; r < kGridSize; r++) {
         for (int c = 0; c < kGridSize; c++) {
-          if (r < _board.length && c < _board[r].length) {
-            final cell = _board[r][c];
-            if (cell.isFixed && cell.value != null) {
-              sb.write('${cell.value! + 1}');
-            } else {
-              sb.write('0');
-            }
+          // We assume _board is valid and loaded here because this function
+          // is only called after those conditions are met in the calling methods.
+          final cell = _board[r][c]; // Direct access assuming valid state
+          if (cell.isFixed && cell.value != null) {
+            sb.write('${cell.value! + 1}');
           } else {
-             sb.write('0'); // Fallback
-             if (kDebugMode) print("Warning: Accessed board out of bounds at [$r, $c] in _generateAndStorePuzzleString");
+            sb.write('0');
           }
         }
       }
