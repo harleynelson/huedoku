@@ -30,8 +30,8 @@ class GameProvider extends ChangeNotifier {
   final List<List<List<SudokuCellData>>> _history = [];
   final int _maxHistory = 20;
 
-  // --- REMOVED _minCluesConstraint (no longer used directly for generation) ---
-  // static const int _minCluesConstraint = 2;
+  // --- NEW: Flag for intro number animation ---
+  bool _runIntroNumberAnimation = false;
 
   List<List<SudokuCellData>> get board => _board;
   bool get isPuzzleLoaded => _isPuzzleLoaded;
@@ -44,8 +44,10 @@ class GameProvider extends ChangeNotifier {
   bool get canUndo => _history.isNotEmpty;
   int? get currentPuzzleDifficulty => _currentPuzzleDifficulty;
   int? get initialDifficultySelection => _initialDifficultySelection;
+  // --- NEW: Getter for intro animation flag ---
+  bool get runIntroNumberAnimation => _runIntroNumberAnimation;
 
-  // --- loadNewPuzzle (logic remains the same) ---
+
   void loadNewPuzzle({int difficulty = 1}) {
       _initialDifficultySelection = difficulty;
       int actualDifficulty;
@@ -62,22 +64,43 @@ class GameProvider extends ChangeNotifier {
          notifyListeners(); return;
       }
 
-      // --- *** Use NEW puzzle creation method *** ---
       var puzzleResult = _createUniquePuzzleFromSolvedBoard(_solutionBoard, actualDifficulty);
       if (puzzleResult == null) {
          if (kDebugMode) print("Error: Failed to create a unique puzzle. Retrying...");
-         // Optionally add retry logic here or notify user
          _isPuzzleLoaded = false; _currentPuzzleDifficulty = null; _initialDifficultySelection = null;
          notifyListeners(); return;
       }
       _board = puzzleResult;
-      // --- *** End NEW puzzle creation method usage *** ---
 
       _isPuzzleLoaded = true; _isCompleted = false; _isPaused = false;
       _selectedRow = null; _selectedCol = null; _isEditingCandidates = false;
       _history.clear(); resetTimer(); startTimer();
+      // --- NEW: Reset intro animation flag on new puzzle ---
+      _runIntroNumberAnimation = false;
       notifyListeners();
   }
+
+  // --- Methods to control intro animation flag ---
+  void triggerIntroNumberAnimation() {
+    if (!_runIntroNumberAnimation) {
+      _runIntroNumberAnimation = true;
+      notifyListeners();
+      // Optionally, set a timer to turn it off automatically after a duration
+      // Timer(Duration(seconds: 3), () { // Example duration
+      //   resetIntroNumberAnimation();
+      // });
+    }
+  }
+
+  void resetIntroNumberAnimation() {
+    if (_runIntroNumberAnimation) {
+      _runIntroNumberAnimation = false;
+      // Do we need to notify here? Maybe not, depends on usage.
+      // Let's notify for now to be safe.
+      notifyListeners();
+    }
+  }
+  // --- End NEW Methods ---
 
   // --- _generateSolvedBoard (unchanged) ---
   bool _generateSolvedBoard(List<List<int?>> board) {
@@ -89,32 +112,27 @@ class GameProvider extends ChangeNotifier {
     return false;
   }
 
-  // --- *** NEW: Puzzle Creation with Uniqueness Check *** ---
+  // --- _createUniquePuzzleFromSolvedBoard (unchanged) ---
   List<List<SudokuCellData>>? _createUniquePuzzleFromSolvedBoard(List<List<int?>> solvedBoard, int actualDifficulty) {
       int cellsToRemove;
-      // Adjust these targets based on desired difficulty and performance
-      // Fewer cells removed = easier, More cells removed = harder (but takes longer)
       switch (actualDifficulty) {
-          case 0: cellsToRemove = 28; break; // Easy (35 normally)
+          case 0: cellsToRemove = 28; break; // Easy
           case 1: cellsToRemove = 38; break; // Medium
           case 2: cellsToRemove = 47; break; // Hard
-          case 3: cellsToRemove = 53; break; // Painful (may take noticeable time)
+          case 3: cellsToRemove = 53; break; // Painful
           default: cellsToRemove = 42;
       }
-      cellsToRemove = min(cellsToRemove, 60); // Limit removals to avoid excessive generation time
+      cellsToRemove = min(cellsToRemove, 60);
 
-      // Start with the fully solved board converted to SudokuCellData
       List<List<SudokuCellData>> puzzleBoardData = List.generate( 9,
          (r) => List.generate(9, (c) => SudokuCellData(value: solvedBoard[r][c], isFixed: true))
       );
-      // Create a mutable int board for the solver
       List<List<int?>> currentPuzzleState = List.generate(9, (r) => List.from(solvedBoard[r]));
 
       int removedCount = 0;
       int attempts = 0;
-      final int maxTotalAttempts = 81 * 2; // Limit total attempts to prevent very long generation
+      final int maxTotalAttempts = 81 * 2;
 
-      // Get all possible cell indices and shuffle them
       List<int> cellIndices = List.generate(81, (i) => i)..shuffle(_random);
 
       for (int index in cellIndices) {
@@ -124,40 +142,27 @@ class GameProvider extends ChangeNotifier {
           int r = index ~/ 9;
           int c = index % 9;
 
-          // Skip if already removed
           if (currentPuzzleState[r][c] == null) continue;
 
-          // Temporarily remove the value and check uniqueness
           int? tempValue = currentPuzzleState[r][c];
           currentPuzzleState[r][c] = null;
 
-          // --- Check number of solutions ---
           int solutionCount = _countSolutions(currentPuzzleState);
 
           if (solutionCount == 1) {
-              // Removal is valid, keep it removed
               removedCount++;
           } else {
-              // Removal leads to 0 or >1 solutions, put the value back
               currentPuzzleState[r][c] = tempValue;
           }
       }
 
       if (kDebugMode) print("Puzzle Generation: Target removals: $cellsToRemove, Actual removals: $removedCount, Attempts: $attempts");
 
-      // If we couldn't remove enough cells (e.g., uniqueness constraint too strict),
-      // we might return null or a potentially easier puzzle than intended.
-      // For now, return the puzzle generated, even if fewer cells were removed.
-      // if (removedCount < cellsToRemove / 2) return null; // Example: fail if drastically fewer cells removed
-
-      // Finalize the SudokuCellData board based on the final state
       for (int r = 0; r < 9; r++) {
          for (int c = 0; c < 9; c++) {
             if (currentPuzzleState[r][c] != null) {
-               // Keep value, mark as fixed
                puzzleBoardData[r][c] = SudokuCellData(value: currentPuzzleState[r][c], isFixed: true);
             } else {
-               // Cell was removed, mark as empty and not fixed
                puzzleBoardData[r][c] = SudokuCellData(value: null, isFixed: false);
             }
          }
@@ -165,10 +170,9 @@ class GameProvider extends ChangeNotifier {
 
       return puzzleBoardData;
   }
-  // --- *** END NEW Puzzle Creation Method *** ---
 
 
-  // --- *** NEW: Solution Counter (Backtracking) *** ---
+  // --- _countSolutions (unchanged) ---
   int _countSolutions(List<List<int?>> board) {
     int? row, col;
     bool foundEmpty = false;
@@ -182,23 +186,16 @@ class GameProvider extends ChangeNotifier {
       if (foundEmpty) break;
     }
 
-    // If no empty cell, we found one complete solution
     if (!foundEmpty) {
       return 1;
     }
 
     int count = 0;
-    // Try numbers 0-8 (representing colors/patterns)
     for (int num = 0; num < 9; num++) {
       if (_isValidPlacementInternal(board, row!, col!, num)) {
-        board[row][col] = num; // Place number
-
-        // Recurse and add solutions found from this placement
+        board[row][col] = num;
         count += _countSolutions(board);
-
-        board[row][col] = null; // Backtrack: Remove number
-
-        // Optimization: If we already found more than one solution, stop counting
+        board[row][col] = null;
         if (count > 1) {
           return count;
         }
@@ -206,33 +203,26 @@ class GameProvider extends ChangeNotifier {
     }
     return count;
   }
-  // --- *** END Solution Counter *** ---
 
 
-  // --- Validation Logic ---
-  // Internal helper for solvers (uses int? board)
+  // --- _isValidPlacementInternal (unchanged) ---
   bool _isValidPlacementInternal(List<List<int?>> board, int row, int col, int num) {
-     // Check row
      for(int c=0;c<9;c++){ if(board[row][c]==num) return false; }
-     // Check column
      for(int r=0;r<9;r++){ if(board[r][col]==num) return false; }
-     // Check 3x3 block
      int startRow=(row~/3)*3; int startCol=(col~/3)*3;
      for(int r=0;r<3;r++){ for(int c=0;c<3;c++){ if(board[startRow+r][startCol+c]==num) return false; } }
      return true;
   }
 
-  // Public helper used for error checking (uses current board state)
+  // --- isValidPlacementForCell (unchanged) ---
   bool isValidPlacementForCell(int row, int col, int num) {
-      // Creates a temporary board reflecting current user input for checking
       List<List<int?>> tempBoard = List.generate(9, (r) => List.generate(9, (c) => _board[r][c].value));
-      // Temporarily clear the cell being checked if it already has a value
       tempBoard[row][col] = null;
       return _isValidPlacementInternal(tempBoard, row, col, num);
   }
 
 
-  // Update Board Errors (uses the public validity check)
+  // --- updateBoardErrors (unchanged) ---
   void updateBoardErrors(bool showErrors) {
      bool errorStateChanged = false;
      for(int r=0; r<9; r++){
@@ -242,9 +232,8 @@ class GameProvider extends ChangeNotifier {
          bool previousError = cell.hasError;
 
          if(cellValue == null || cell.isFixed){
-           cell.hasError = false; // Fixed cells or empty cells have no errors
+           cell.hasError = false;
          } else {
-           // Check if the current placement is valid according to rules
            cell.hasError = !isValidPlacementForCell(r, c, cellValue);
          }
 
@@ -253,82 +242,67 @@ class GameProvider extends ChangeNotifier {
          }
        }
      }
-     // Only notify if errors should be shown OR if an error state actually changed
-     // (prevents notifying just because the setting is toggled)
      if (showErrors && errorStateChanged) {
         notifyListeners();
      } else if (!showErrors && errorStateChanged) {
-        // If errors are hidden now, but state changed (likely errors cleared), notify to update UI
         notifyListeners();
      }
   }
 
-  // --- *** NEW: Helper to check if a completed board state is valid *** ---
+  // --- _isBoardStateValid (unchanged) ---
   bool _isBoardStateValid(List<List<SudokuCellData>> boardData) {
-     // Convert to int? grid first
      List<List<int?>> boardValues = List.generate(9, (r) => List.generate(9, (c) {
-        // If any cell is null, the board isn't fully complete, thus not valid *yet*
-        if (boardData[r][c].value == null) return -1; // Use -1 temporarily to signal incompletion
+        if (boardData[r][c].value == null) return -1;
         return boardData[r][c].value;
      }));
 
      for (int r = 0; r < 9; r++) {
         for (int c = 0; c < 9; c++) {
            int? currentValue = boardValues[r][c];
-           if (currentValue == -1 || currentValue == null) return false; // Should not happen if called correctly after _isBoardCompleteAndCorrect check
-
-           // Temporarily remove value to check placement validity
+           if (currentValue == -1 || currentValue == null) return false;
            boardValues[r][c] = null;
            if (!_isValidPlacementInternal(boardValues, r, c, currentValue)) {
-              return false; // Found a violation
+              return false;
            }
-           boardValues[r][c] = currentValue; // Put back value
+           boardValues[r][c] = currentValue;
         }
      }
-     return true; // All checks passed
+     return true;
   }
- // --- *** END Board State Validity Check *** ---
 
-
-   // --- *** UPDATED Win Condition Check *** ---
+   // --- _isBoardCompleteAndCorrect (unchanged) ---
    bool _isBoardCompleteAndCorrect() {
-       // 1. Check if all cells are filled
        for(int r=0; r<9; r++){
           for(int c=0; c<9; c++){
-             if(_board[r][c].value == null) return false; // Not complete
+             if(_board[r][c].value == null) return false;
           }
        }
-
-       // 2. Check if the current board state is a valid Sudoku solution
        return _isBoardStateValid(_board);
    }
-   // --- *** END UPDATED Win Condition Check *** ---
 
 
-   // --- Hint Logic (unchanged) ---
+   // --- provideHint (unchanged) ---
     bool provideHint({required bool showErrors}) {
     if (_selectedRow != null && _selectedCol != null && !_isCompleted) {
       final cell = _board[_selectedRow!][_selectedCol!];
       if (!cell.isFixed && cell.value == null) {
-        int? solutionValue = _solutionBoard[_selectedRow!][_selectedCol!]; // Hint uses original solution
+        int? solutionValue = _solutionBoard[_selectedRow!][_selectedCol!];
         if (solutionValue != null) {
           _saveStateToHistory(); cell.value = solutionValue; cell.candidates.clear(); cell.isHint = true;
           updateBoardErrors(showErrors);
-          // Check completion using the updated method
           if (_isBoardCompleteAndCorrect()) { _isCompleted = true; stopTimer(); if (kDebugMode) print("Game Completed via Hint!");
           } else { _isCompleted = false; }
            notifyListeners(); return true;
         } } } return false; }
 
-  // --- Cell Interaction (placeValue uses updated completion check indirectly) ---
+  // --- Cell Interaction (unchanged) ---
   void selectCell(int row, int col) { if(_selectedRow==row&&_selectedCol==col){_selectedRow=null;_selectedCol=null;}else{_selectedRow=row;_selectedCol=col;} notifyListeners(); }
 
   void placeValue(int colorIndex, {required bool showErrors}) {
       if(_selectedRow!=null&&_selectedCol!=null&&!_isCompleted){final cell=_board[_selectedRow!][_selectedCol!];
       if(!cell.isFixed){_saveStateToHistory();if(_isEditingCandidates){if(cell.candidates.contains(colorIndex)){cell.candidates.remove(colorIndex);}else{cell.candidates.add(colorIndex);}if(cell.value!=null)cell.value=null;}
       else{if(cell.value==colorIndex){cell.value=null;}else{cell.value=colorIndex;}cell.candidates.clear();}
-      updateBoardErrors(showErrors); // Update errors based on current placement
-      // Check completion using the updated method
+      updateBoardErrors(showErrors);
       if(_isBoardCompleteAndCorrect()){_isCompleted=true;stopTimer();if(kDebugMode)print("Game Completed!");}else{_isCompleted=false;}
       notifyListeners();}}}
 
