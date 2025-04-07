@@ -1,6 +1,4 @@
 // File: lib/screens/game_screen.dart
-// Location: Entire File
-// (More than 2 methods/areas affected by constant changes)
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -21,8 +19,10 @@ import 'dart:math';
 import 'package:huedoku/themes.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/foundation.dart';
-// --- UPDATED: Import constants ---
 import 'package:huedoku/constants.dart';
+// --- Import for Clipboard ---
+import 'package:flutter/services.dart';
+// --- Import for Sharing ---
 import 'package:share_plus/share_plus.dart';
 
 
@@ -34,7 +34,7 @@ class GameScreen extends StatefulWidget {
 }
 
 class _GameScreenState extends State<GameScreen> {
-  bool _completionDialogShown = false;
+  bool _completionDialogShown = false; // Tracks if dialog is shown *for the current completion*
   List<BokehParticle> _particles = [];
   bool _particlesInitialized = false;
   Size? _lastScreenSize;
@@ -46,7 +46,6 @@ class _GameScreenState extends State<GameScreen> {
 
   @override void initState() {
      super.initState();
-     // --- UPDATED: Use constant for confetti duration ---
      _confettiController = ConfettiController(duration: kConfettiDuration);
      WidgetsBinding.instance.addPostFrameCallback((_) {
         _startIntroAnimationSequenceIfNeeded();
@@ -56,6 +55,17 @@ class _GameScreenState extends State<GameScreen> {
   @override void didChangeDependencies() {
      super.didChangeDependencies();
      _updateBokehIfNeeded();
+
+     // --- Reset dialog shown flag if puzzle is no longer completed ---
+     // This handles cases where the user might undo back from a completed state
+     final gameProvider = Provider.of<GameProvider>(context, listen: false);
+     if (!gameProvider.isCompleted && _completionDialogShown) {
+        if (mounted) {
+           setState(() {
+              _completionDialogShown = false;
+           });
+        }
+     }
   }
 
   @override void dispose() {
@@ -64,7 +74,7 @@ class _GameScreenState extends State<GameScreen> {
     super.dispose();
   }
 
-  // --- Updated Intro Animation Sequence (Uses constants) ---
+  // --- startIntroAnimationSequenceIfNeeded, _regenerateBokehParticles, _updateBokehIfNeeded, _formatDuration, _showSettingsSheet remain the same ---
   void _startIntroAnimationSequenceIfNeeded() {
     if (!mounted) return;
     _introAnimationTimer?.cancel();
@@ -73,7 +83,6 @@ class _GameScreenState extends State<GameScreen> {
     final gameProvider = Provider.of<GameProvider>(context, listen: false);
 
     if (gameProvider.isPuzzleLoaded && settingsProvider.cellOverlay == CellOverlay.none) {
-      // --- UPDATED: Use constants for delays ---
       _introAnimationTimer = Timer(kIntroSequenceDelay, () {
         if (!mounted) return;
         gameProvider.triggerIntroNumberAnimation();
@@ -81,44 +90,61 @@ class _GameScreenState extends State<GameScreen> {
         _introAnimationTimer = Timer(kIntroHighlightDelay, () {
           if (!mounted) return;
           _gameControlsKey.currentState?.triggerHighlight();
-          // Optional: reset provider flag
-          // gameProvider.resetIntroNumberAnimation();
         });
       });
+    } else {
+       gameProvider.resetIntroNumberAnimation();
     }
   }
 
-  // --- Methods (regenerateBokeh, updateBokeh, formatDuration, dialogs - Uses constants) ---
   void _regenerateBokehParticles() {
       if (!mounted) return;
       final mediaQueryData = MediaQuery.of(context);
-      final settings = Provider.of<SettingsProvider>(context, listen: false);
       if (mediaQueryData.size.isEmpty || mediaQueryData.size.width <= 0 || mediaQueryData.size.height <= 0) {
-          SchedulerBinding.instance.addPostFrameCallback((_) => _regenerateBokehParticles());
+          SchedulerBinding.instance.addPostFrameCallback((_) {
+              if (mounted) _regenerateBokehParticles();
+          });
           return;
       }
+
+      final settings = Provider.of<SettingsProvider>(context, listen: false);
       final currentSize = mediaQueryData.size;
       final currentThemeData = appThemes[settings.selectedThemeKey] ?? appThemes[lightThemeKey]!;
       final currentThemeIsDark = currentThemeData.brightness == Brightness.dark;
       final currentPalette = settings.selectedPalette;
-      // --- UPDATED: Use constant for particle count ---
       final newParticles = createBokehParticles(currentSize, currentThemeIsDark, kBokehParticleCount, currentPalette);
-      setState(() { _particles = newParticles; _particlesInitialized = true; _lastScreenSize = currentSize; _lastThemeIsDark = currentThemeIsDark; _lastPaletteUsed = currentPalette; });
+
+      if (mounted) {
+        setState(() {
+           _particles = newParticles;
+           _particlesInitialized = true;
+           _lastScreenSize = currentSize;
+           _lastThemeIsDark = currentThemeIsDark;
+           _lastPaletteUsed = currentPalette;
+        });
+      }
   }
 
   void _updateBokehIfNeeded() {
       if (!mounted) return;
       final mediaQueryData = MediaQuery.of(context);
-      if (mediaQueryData.size.isEmpty || mediaQueryData.size.width <= 0 || mediaQueryData.size.height <= 0) {
-          SchedulerBinding.instance.addPostFrameCallback((_) => _updateBokehIfNeeded());
-          return;
-      }
+       if (mediaQueryData.size.isEmpty || mediaQueryData.size.width <= 0 || mediaQueryData.size.height <= 0) {
+           SchedulerBinding.instance.addPostFrameCallback((_) {
+               if (mounted) _updateBokehIfNeeded();
+           });
+           return;
+       }
+
       final settings = Provider.of<SettingsProvider>(context, listen: false);
       final currentSize = mediaQueryData.size;
       final currentThemeData = appThemes[settings.selectedThemeKey] ?? appThemes[lightThemeKey]!;
       final currentThemeIsDark = currentThemeData.brightness == Brightness.dark;
       final currentPalette = settings.selectedPalette;
-      bool needsUpdate = !_particlesInitialized || currentThemeIsDark != _lastThemeIsDark;
+      bool needsUpdate = !_particlesInitialized ||
+                         currentThemeIsDark != _lastThemeIsDark ||
+                         currentPalette != _lastPaletteUsed ||
+                         currentSize != _lastScreenSize;
+
       if (needsUpdate) {
           if(!_particlesInitialized) { _lastScreenSize = currentSize; }
           _regenerateBokehParticles();
@@ -128,233 +154,284 @@ class _GameScreenState extends State<GameScreen> {
       _lastPaletteUsed = currentPalette;
   }
 
-  String _formatDuration(Duration duration) { String twoDigits(int n) => n.toString().padLeft(2, '0'); String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60)); String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60)); if (duration.inHours > 0) { return "${twoDigits(duration.inHours)}:$twoDigitMinutes:$twoDigitSeconds"; } else { return "$twoDigitMinutes:$twoDigitSeconds"; } }
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
+    String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
+    if (duration.inHours > 0) {
+       return "${twoDigits(duration.inHours)}:$twoDigitMinutes:$twoDigitSeconds";
+    } else {
+       return "$twoDigitMinutes:$twoDigitSeconds";
+    }
+  }
 
   void _showSettingsSheet(BuildContext context) {
-      showModalBottomSheet(
+      showModalBottomSheet( /* ... same as before ... */
           context: context,
           isScrollControlled: true,
           backgroundColor: Colors.transparent,
-          // --- UPDATED: Use constant for radius ---
           shape: const RoundedRectangleBorder( borderRadius: BorderRadius.vertical(top: Radius.circular(kLargeRadius)), ),
-          // --- UPDATED: Use constant factor for height ---
-          constraints: BoxConstraints( maxHeight: MediaQuery.of(context).size.height * 0.80, ), // Keep factor or make constant
+          constraints: BoxConstraints( maxHeight: MediaQuery.of(context).size.height * 0.80, ),
           builder: (BuildContext sheetContext) {
               final isDark = Theme.of(sheetContext).brightness == Brightness.dark;
-              // --- UPDATED: Use constant opacity ---
               final glassColor = (isDark ? Colors.black : Colors.white).withOpacity(kMediumOpacity);
               final glassBorder = (isDark ? Colors.white : Colors.black).withOpacity(kLowOpacity);
               return ClipRRect(
-                  // --- UPDATED: Use constant for radius ---
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(kLargeRadius)),
                   child: BackdropFilter(
-                      // --- UPDATED: Use constant for blur ---
-                      filter: ui.ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0), // Keep specific or make constant
+                      filter: ui.ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
                       child: Container(
                           decoration: BoxDecoration(
                               color: glassColor,
-                              // --- UPDATED: Use constant for radius ---
                               borderRadius: const BorderRadius.vertical(top: Radius.circular(kLargeRadius)),
-                              // --- UPDATED: Use constant for border width ---
-                              border: Border(top: BorderSide(color: glassBorder, width: 0.5)), // Keep specific or make constant
+                              border: Border(top: BorderSide(color: glassBorder, width: 0.5)),
                           ),
-                          // --- UPDATED: Use constant for padding ---
-                          child: Padding( padding: const EdgeInsets.only(top: kDefaultPadding), child: SettingsContent(), )
+                          child: Padding(
+                             padding: const EdgeInsets.only(top: kDefaultPadding),
+                             child: SettingsContent(),
+                          )
                       ),
                   ),
               );
           },
-      );
+       );
   }
 
+  // --- UPDATED Completion Dialog ---
   void _showCompletionDialog(BuildContext context, Duration finalTime) {
-  if (kDebugMode) { print("--- Completion Dialog: finalTime = $finalTime ---"); }
-  if (mounted) { setState(() { _completionDialogShown = true; }); }
-  _confettiController.play();
+    if (!mounted) return; // Check if mounted before proceeding
 
-  // Access providers and theme outside the builder for clarity
-  final gameProvider = Provider.of<GameProvider>(context, listen: false);
-  final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
-  final ThemeData dialogTheme = Theme.of(context);
-  final TextTheme dialogTextTheme = dialogTheme.textTheme;
-  final bool isDark = dialogTheme.brightness == Brightness.dark;
-  final String difficultyLabel = difficultyLabels[gameProvider.currentPuzzleDifficulty ?? 1] ?? 'Medium';
+    // --- SET FLAG FIRST ---
+    // We set this immediately to prevent build triggering it again right away
+    setState(() { _completionDialogShown = true; });
+    _confettiController.play();
 
+    final gameProvider = Provider.of<GameProvider>(context, listen: false);
+    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+    final ThemeData dialogTheme = Theme.of(context);
+    final TextTheme dialogTextTheme = dialogTheme.textTheme;
+    final bool isDark = dialogTheme.brightness == Brightness.dark;
+    final String difficultyLabel = difficultyLabels[gameProvider.currentPuzzleDifficulty ?? 1] ?? 'Medium';
+    final int hints = gameProvider.hintsUsed;
+    final String? puzzleCode = gameProvider.currentPuzzleString; // Get the code
 
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (BuildContext dialogContext) {
-      // --- Custom Dialog Look ---
-      return Dialog(
-        // --- UPDATED: Use constant for radius ---
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kLargeRadius)), // Larger radius
-        elevation: kHighElevation, // Add some elevation
-        backgroundColor: Colors.transparent, // Make standard background transparent
-        child: ClipRRect(
-          // --- UPDATED: Use constant for radius ---
-          borderRadius: BorderRadius.circular(kLargeRadius),
-          child: BackdropFilter(
-             // --- UPDATED: Use constant for blur ---
-            filter: ui.ImageFilter.blur(sigmaX: 8.0, sigmaY: 8.0), // Blur background
-            child: Container(
-               // --- UPDATED: Use constants for padding/opacity ---
-              padding: const EdgeInsets.all(kExtraLargePadding),
-              decoration: BoxDecoration(
-                // --- UPDATED: Use constant for opacity ---
-                color: dialogTheme.colorScheme.surface.withOpacity(isDark ? kHighOpacity : kVeryHighOpacity), // Use surface color with opacity
-                borderRadius: BorderRadius.circular(kLargeRadius),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  // --- Enhanced Title ---
-                  Icon(
-                    Icons.emoji_events_outlined, // Trophy Icon
-                    color: dialogTheme.colorScheme.primary,
-                    size: 40.0, // Larger icon
-                  ),
-                  // --- UPDATED: Use constant for spacing ---
-                  const SizedBox(height: kSmallSpacing),
-                  Text(
-                    'Puzzle Solved!',
-                    style: GoogleFonts.nunito(
-                        textStyle: dialogTextTheme.headlineSmall, // Larger title
-                        fontWeight: FontWeight.bold),
-                    textAlign: TextAlign.center,
-                  ),
-                  // --- UPDATED: Use constant for spacing ---
-                  const SizedBox(height: kMediumSpacing),
-                  Text(
-                    'Difficulty: $difficultyLabel', // Show difficulty
-                    style: GoogleFonts.nunito(
-                        textStyle: dialogTextTheme.bodyMedium),
-                     textAlign: TextAlign.center,
-                  ),
-                  // --- UPDATED: Use constant for spacing ---
-                  const SizedBox(height: kSmallSpacing), // Smaller space
-                  Text(
-                    'Your Time:',
-                    style: GoogleFonts.nunito(
-                        textStyle: dialogTextTheme.bodyMedium),
-                    textAlign: TextAlign.center,
-                  ),
-                  // --- UPDATED: Use constant for spacing ---
-                  const SizedBox(height: kSmallSpacing), // Smaller space
-                  Text(
-                    _formatDuration(finalTime),
-                    style: GoogleFonts.nunito(
-                       // --- UPDATED: Use constant for font size multiplier ---
-                      fontSize: dialogTextTheme.headlineMedium!.fontSize, // Larger time display
-                      fontWeight: FontWeight.bold,
-                      color: dialogTheme.colorScheme.primary, // Use primary color for time
-                      fontFeatures: const [ui.FontFeature.tabularFigures()],
+    if (kDebugMode) {
+      print("Debug: Puzzle Code in Dialog = $puzzleCode");
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kLargeRadius)),
+          elevation: kHighElevation,
+          backgroundColor: Colors.transparent,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(kLargeRadius),
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 8.0, sigmaY: 8.0),
+              child: Container(
+                padding: const EdgeInsets.all(kExtraLargePadding),
+                decoration: BoxDecoration(
+                  color: dialogTheme.colorScheme.surface.withOpacity(isDark ? kHighOpacity : kVeryHighOpacity),
+                  borderRadius: BorderRadius.circular(kLargeRadius),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    // --- Title and Info ---
+                    Icon( Icons.emoji_events_outlined, color: dialogTheme.colorScheme.primary, size: 40.0, ),
+                    const SizedBox(height: kSmallSpacing),
+                    Text( 'Puzzle Solved!', style: GoogleFonts.nunito( textStyle: dialogTextTheme.headlineSmall, fontWeight: FontWeight.bold), textAlign: TextAlign.center, ),
+                    const SizedBox(height: kMediumSpacing),
+                    Text( 'Difficulty: $difficultyLabel', style: GoogleFonts.nunito( textStyle: dialogTextTheme.bodyMedium), textAlign: TextAlign.center, ),
+                    const SizedBox(height: kSmallSpacing),
+                    Text( 'Hints Used: $hints', style: GoogleFonts.nunito( textStyle: dialogTextTheme.bodyMedium), textAlign: TextAlign.center, ),
+                    const SizedBox(height: kSmallSpacing),
+                    Text( 'Your Time:', style: GoogleFonts.nunito( textStyle: dialogTextTheme.bodyMedium), textAlign: TextAlign.center, ),
+                    const SizedBox(height: kSmallSpacing),
+                    Text( _formatDuration(finalTime),
+                      style: GoogleFonts.nunito(
+                        fontSize: dialogTextTheme.headlineMedium!.fontSize,
+                        fontWeight: FontWeight.bold,
+                        color: dialogTheme.colorScheme.primary,
+                        fontFeatures: const [ui.FontFeature.tabularFigures()],
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                    textAlign: TextAlign.center,
-                  ),
-                  // --- UPDATED: Use constant for spacing ---
-                  const SizedBox(height: kExtraLargeSpacing), // More space before buttons
+                    const SizedBox(height: kExtraLargeSpacing),
 
-                  // --- Action Buttons ---
-                  Column( // Use Column for buttons
-                    crossAxisAlignment: CrossAxisAlignment.stretch, // Make buttons fill width
-                    children: [
-                       ElevatedButton.icon(
-                         icon: const Icon(Icons.share_outlined),
-                         label: Text('Brag to Friends!', style: GoogleFonts.nunito()),
-                         style: ElevatedButton.styleFrom(
-                           // --- UPDATED: Use constant for padding ---
-                           padding: const EdgeInsets.symmetric(vertical: kMediumPadding),
-                           backgroundColor: dialogTheme.colorScheme.secondaryContainer,
-                           foregroundColor: dialogTheme.colorScheme.onSecondaryContainer,
+                    // --- Action Buttons ---
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                         ElevatedButton.icon(
+                           icon: const Icon(Icons.share_outlined),
+                           // --- Updated Brag Text to INCLUDE puzzle code ---
+                           label: Text('Brag about it', style: GoogleFonts.nunito()),
+                           style: ElevatedButton.styleFrom(
+                             padding: const EdgeInsets.symmetric(vertical: kMediumPadding),
+                             backgroundColor: dialogTheme.colorScheme.secondaryContainer,
+                             foregroundColor: dialogTheme.colorScheme.onSecondaryContainer,
+                           ),
+                           onPressed: () {
+                              final String timeStr = _formatDuration(finalTime);
+                              // --- Construct share text WITH puzzle code ---
+                              String shareText = "I solved a $difficultyLabel Rainboku puzzle in $timeStr with $hints hint${hints == 1 ? '' : 's'}! 🌈";
+                              if (puzzleCode != null) {
+                                 shareText += "\n\nThink you can beat me? Try the same puzzle! #RainbokuChallenge\n\nCode: $puzzleCode ";
+                              } else {
+                                 shareText += " #Rainboku";
+                              }
+                              Share.share(shareText);
+                           },
                          ),
-                         onPressed: () {
-                            // --- Share Functionality ---
-                            final String timeStr = _formatDuration(finalTime);
-                            final String shareText = "I just solved a $difficultyLabel Rainboku puzzle in $timeStr! 🌈 Can you beat my time? #Rainboku #SudokuChallenge";
-                            Share.share(shareText);
-                         },
-                       ),
-                       // --- UPDATED: Use constant for spacing ---
-                       const SizedBox(height: kSmallSpacing), // Space between buttons
-                       TextButton(
-                         child: Text('New Game', style: GoogleFonts.nunito(textStyle: dialogTextTheme.labelLarge)),
-                         onPressed: () {
-                           final int initialDifficulty = gameProvider.initialDifficultySelection ?? 1;
-                           if (initialDifficulty == -1) {
-                             settingsProvider.selectRandomPalette();
-                           }
-                           if (mounted) {
-                             setState(() { _completionDialogShown = false; });
-                           }
-                           Navigator.of(dialogContext).pop(); // Close the dialog first
-                           gameProvider.loadNewPuzzle(difficulty: initialDifficulty);
-                           _regenerateBokehParticles(); // Assuming this is still needed
-                           _startIntroAnimationSequenceIfNeeded(); // Assuming this is still needed
-                         },
-                       ),
-                       TextButton(
-                         child: Text('Close', style: GoogleFonts.nunito(textStyle: dialogTextTheme.labelLarge?.copyWith(color: dialogTheme.colorScheme.onSurface.withOpacity(0.7)))), // Slightly muted close
-                         onPressed: () {
-                           if (mounted) {
-                             setState(() { _completionDialogShown = false; });
-                           }
-                           Navigator.of(dialogContext).pop();
-                           // Optional: Decide if you want to pause the game or leave it completed
-                           // gameProvider.pauseGame();
-                         },
-                       ),
-                    ],
-                  ),
-                ],
+                         const SizedBox(height: kSmallSpacing),
+                         // --- Button to copy JUST the code ---
+                         if (puzzleCode != null)
+                           ElevatedButton.icon(
+                              icon: const Icon(Icons.copy_all_outlined),
+                              label: Text('Copy Puzzle Code', style: GoogleFonts.nunito()),
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: kMediumPadding),
+                                backgroundColor: dialogTheme.colorScheme.tertiaryContainer,
+                                foregroundColor: dialogTheme.colorScheme.onTertiaryContainer,
+                              ),
+                              onPressed: () {
+                                 Clipboard.setData(ClipboardData(text: puzzleCode));
+                                 if (dialogContext.mounted) {
+                                     ScaffoldMessenger.of(dialogContext).showSnackBar(
+                                         SnackBar(
+                                             content: const Text('Puzzle code copied to clipboard!'),
+                                             duration: kSnackbarDuration,
+                                             behavior: SnackBarBehavior.floating,
+                                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kSmallRadius)),
+                                         ),
+                                     );
+                                 }
+                              },
+                           ),
+                         if (puzzleCode != null) const SizedBox(height: kSmallSpacing),
+                         // --- New Game Button ---
+                         TextButton(
+                           child: Text('New Game', style: GoogleFonts.nunito(textStyle: dialogTextTheme.labelLarge)),
+                           onPressed: () {
+                                final int initialDifficulty = gameProvider.initialDifficultySelection ?? 1;
+                                if (initialDifficulty == -1) { settingsProvider.selectRandomPalette(); }
+                                Navigator.of(dialogContext).pop(); // Close dialog FIRST
+                                // --- Reset flag BEFORE loading new puzzle ---
+                                if (mounted) { setState(() { _completionDialogShown = false; }); }
+                                gameProvider.loadNewPuzzle(difficulty: initialDifficulty);
+                                _regenerateBokehParticles();
+                                _startIntroAnimationSequenceIfNeeded();
+                            },
+                         ),
+                         // --- Close Button ---
+                         TextButton(
+                           child: Text('Close', style: GoogleFonts.nunito(textStyle: dialogTextTheme.labelLarge?.copyWith(color: dialogTheme.colorScheme.onSurface.withOpacity(0.7)))),
+                           onPressed: () {
+                                // --- Only pop, DO NOT reset the _completionDialogShown flag here ---
+                                // This prevents it from immediately reopening if the build method runs again
+                                // while isCompleted is still true. The flag will be reset by starting a
+                                // new game or potentially by didChangeDependencies if state changes.
+                                Navigator.of(dialogContext).pop();
+                            },
+                         ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-      );
-    },
-  );
-}
+        );
+      },
+    );
+  }
 
 
   @override
   Widget build(BuildContext context) {
+    // ... (provider setup, theme, gradients, colors - same as before) ...
     final settingsProvider = Provider.of<SettingsProvider>(context);
     final gameProvider = Provider.of<GameProvider>(context);
     final currentTheme = Theme.of(context);
     final Gradient? backgroundGradient = Theme.of(context).extension<AppGradients>()?.backgroundGradient;
     final defaultFallbackGradient = LinearGradient( colors: [ currentTheme.colorScheme.surface, currentTheme.colorScheme.background, ], begin: Alignment.topLeft, end: Alignment.bottomRight, );
     final List<Color> retroColors = ColorPalette.retro.colors;
-    final List<Color> titleColors = retroColors.length >= 8 ? retroColors.sublist(0, 8) : List.generate(8, (_) => currentTheme.appBarTheme.titleTextStyle?.color ?? currentTheme.colorScheme.primary);
-    final TextStyle? baseTitleStyle = currentTheme.appBarTheme.titleTextStyle;
+    final List<Color> titleColors = retroColors.length >= 8 ? retroColors.sublist(0, 8) : List.generate(8, (i) => retroColors.isNotEmpty ? retroColors[i % retroColors.length] : currentTheme.colorScheme.primary);
+    final TextStyle? baseTitleStyle = currentTheme.appBarTheme.titleTextStyle ?? GoogleFonts.nunito(fontSize: kLargeFontSize, fontWeight: FontWeight.bold);
 
     final bool isCompleted = context.select((GameProvider gp) => gp.isCompleted);
-    if (isCompleted && !_completionDialogShown) { WidgetsBinding.instance.addPostFrameCallback((_) { if (mounted && isCompleted && !_completionDialogShown) { final finalTime = Provider.of<GameProvider>(context, listen: false).elapsedTime; _showCompletionDialog(context, finalTime); } }); }
+
+    // --- UPDATED Dialog Trigger Logic ---
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+       // Show dialog ONLY if game is completed AND the dialog hasn't been shown for this completion yet
+       if (mounted && isCompleted && !_completionDialogShown) {
+          final finalTime = Provider.of<GameProvider>(context, listen: false).elapsedTime;
+          _showCompletionDialog(context, finalTime);
+       }
+    });
 
     return Scaffold(
+      // ... (Scaffold setup, AppBar, Stack with Background, Particles, Confetti - same as before) ...
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
-      appBar: AppBar(
-         // --- UPDATED: Use constants for opacity/elevation ---
+      appBar: AppBar( /* ... AppBar contents ... */
          backgroundColor: currentTheme.brightness == Brightness.dark ? Colors.black.withOpacity(kLowMediumOpacity) : Colors.white.withOpacity(kLowOpacity),
-         elevation: 0, // kZeroElevation if defined
+         elevation: 0,
          foregroundColor: currentTheme.colorScheme.onSurface,
-         title: RichText( text: TextSpan( style: baseTitleStyle, children: <TextSpan>[ TextSpan(text: 'R', style: TextStyle(color: titleColors[1])), TextSpan(text: 'a', style: TextStyle(color: titleColors[2])), TextSpan(text: 'i', style: TextStyle(color: titleColors[0])), TextSpan(text: 'n', style: TextStyle(color: titleColors[3])), TextSpan(text: 'b', style: TextStyle(color: titleColors[4])), TextSpan(text: 'o', style: TextStyle(color: titleColors[5])), TextSpan(text: 'k', style: TextStyle(color: titleColors[6])), TextSpan(text: 'u', style: TextStyle(color: titleColors[7])), ], ), ),
-         leading: IconButton( icon: const Icon(Icons.arrow_back), onPressed: () { gameProvider.pauseGame(); Navigator.pop(context); }, ),
-         actions: [
-             Selector<GameProvider, Tuple2<bool, bool>>( selector: (_, game) => Tuple2(game.isPaused, game.isCompleted), builder: (context, data, child) { final isPaused = data.item1; final isCompleted = data.item2; return IconButton( icon: Icon(isPaused ? Icons.play_arrow : Icons.pause, color: isCompleted ? Colors.grey : null), tooltip: isPaused ? 'Resume' : 'Pause', onPressed: isCompleted ? null : () { final game = Provider.of<GameProvider>(context, listen: false); if (game.isPaused) { game.resumeGame(); } else { game.pauseGame(); } }, ); } ),
+         title: RichText( /* ... Title RichText ... */
+           text: TextSpan(
+             style: baseTitleStyle,
+             children: <TextSpan>[
+               TextSpan(text: 'R', style: TextStyle(color: titleColors[1 % titleColors.length])),
+               TextSpan(text: 'a', style: TextStyle(color: titleColors[2 % titleColors.length])),
+               TextSpan(text: 'i', style: TextStyle(color: titleColors[0 % titleColors.length])),
+               TextSpan(text: 'n', style: TextStyle(color: titleColors[3 % titleColors.length])),
+               TextSpan(text: 'b', style: TextStyle(color: titleColors[4 % titleColors.length])),
+               TextSpan(text: 'o', style: TextStyle(color: titleColors[5 % titleColors.length])),
+               TextSpan(text: 'k', style: TextStyle(color: titleColors[6 % titleColors.length])),
+               TextSpan(text: 'u', style: TextStyle(color: titleColors[7 % titleColors.length])),
+             ],
+           ),
+         ),
+         leading: IconButton( /* ... Back Button ... */
+            icon: const Icon(Icons.arrow_back),
+            tooltip: 'Back to Home',
+            onPressed: () {
+              gameProvider.pauseGame();
+              Navigator.pop(context);
+            },
+         ),
+         actions: [ /* ... Pause/Resume and Settings Buttons ... */
+             Selector<GameProvider, Tuple2<bool, bool>>( /* ... Pause/Resume Logic ... */
+                selector: (_, game) => Tuple2(game.isPaused, game.isCompleted),
+                builder: (context, data, child) {
+                   final isPaused = data.item1;
+                   final isCompleted = data.item2;
+                   return IconButton(
+                      icon: Icon(isPaused ? Icons.play_arrow : Icons.pause, color: isCompleted ? Colors.grey : null),
+                      tooltip: isCompleted ? 'Game Over' : (isPaused ? 'Resume' : 'Pause'),
+                      onPressed: isCompleted ? null : () {
+                         final game = Provider.of<GameProvider>(context, listen: false);
+                         if (game.isPaused) { game.resumeGame(); } else { game.pauseGame(); }
+                      },
+                   );
+                }
+             ),
             IconButton( icon: const Icon(Icons.settings_outlined), tooltip: 'Settings', onPressed: () { _showSettingsSheet(context); }, ),
          ],
        ),
-      body: Stack( children: [
+      body: Stack(
+        children: [
             Container( decoration: BoxDecoration( gradient: backgroundGradient ?? defaultFallbackGradient ) ),
             if (_particlesInitialized) CustomPaint( painter: BokehPainter(particles: _particles ), size: MediaQuery.of(context).size, ),
-             Align( alignment: Alignment.topCenter,
-                child: ConfettiWidget(
+             Align( alignment: Alignment.topCenter, child: ConfettiWidget( /* ... Confetti Setup ... */
                    confettiController: _confettiController,
                    blastDirectionality: BlastDirectionality.explosive,
                    shouldLoop: false,
-                   // --- UPDATED: Use constants for confetti ---
                    numberOfParticles: kConfettiParticleCount,
                    gravity: kConfettiGravity,
                    emissionFrequency: kConfettiEmissionFrequency,
@@ -365,42 +442,54 @@ class _GameScreenState extends State<GameScreen> {
                    createParticlePath: (size) => Path()..addOval(Rect.fromCircle(center: Offset.zero, radius: size.width / 2)),
                 ),
              ),
-            // --- UPDATED: Use constants for padding ---
-            SafeArea( minimum: const EdgeInsets.only(top: kDefaultPadding, right: kDefaultPadding),
-              child: Stack( children: [
-                  Padding( padding: const EdgeInsets.only(left: kMediumPadding, right: kMediumPadding, bottom: kMediumPadding, top: 0),
-                    child: Column( children: <Widget>[
-                          // --- UPDATED: Use constant for padding ---
-                          Padding( padding: const EdgeInsets.symmetric(vertical: kMediumSpacing), child: Consumer<SettingsProvider>( builder: (context, settings, child) { return settings.timerEnabled ? Center(child: TimerWidget()) : const SizedBox(height: 50); }, ), ),
-                          // --- UPDATED: Use constant for spacing ---
+            SafeArea(
+              minimum: const EdgeInsets.only(top: kDefaultPadding, right: kDefaultPadding),
+              child: Stack( // Stack for Difficulty Chip
+                children: [
+                  Padding( // Main Column Padding
+                    padding: const EdgeInsets.only(left: kMediumPadding, right: kMediumPadding, bottom: kMediumPadding, top: 0),
+                    child: Column( // Main Layout Column
+                      children: <Widget>[
+                          Padding( /* ... Timer Widget/SizedBox ... */
+                             padding: const EdgeInsets.symmetric(vertical: kMediumSpacing),
+                             child: Consumer<SettingsProvider>(
+                               builder: (context, settings, child) {
+                                 return settings.timerEnabled ? Center(child: TimerWidget()) : const SizedBox(height: 50);
+                               },
+                             ),
+                          ),
                           const SizedBox(height: kMediumSpacing),
-                          Expanded( child: Center( child: AspectRatio( aspectRatio: 1.0, child: SudokuGridWidget() ) ) ),
-                          // --- UPDATED: Use constant for spacing ---
+                          Expanded( child: Center( child: AspectRatio( aspectRatio: 1.0, child: SudokuGridWidget() ) ) ), // Grid
                           const SizedBox(height: kLargeSpacing),
-                          Stack( alignment: Alignment.center, children: [
-                              Visibility( visible: !gameProvider.isCompleted, maintainState: true, maintainAnimation: true, maintainSize: true, child: Column( mainAxisSize: MainAxisSize.min, children: [ const PaletteSelectorWidget(), const SizedBox(height: kLargeSpacing), GameControls(key: _gameControlsKey), ], ), ),
-                              Visibility( visible: gameProvider.isCompleted,
-                                child: Padding(
-                                  // --- UPDATED: Use constant for padding ---
-                                  padding: const EdgeInsets.symmetric(vertical: kExtraLargeSpacing),
-                                  child: Center( child: ElevatedButton.icon(
+                          Stack( /* ... Palette/Controls vs New Game Button ... */
+                             alignment: Alignment.center,
+                             children: [
+                               Visibility( /* ... Palette and Controls ... */
+                                 visible: !gameProvider.isCompleted,
+                                 maintainState: true, maintainAnimation: true, maintainSize: true,
+                                 child: Column( mainAxisSize: MainAxisSize.min, children: [ const PaletteSelectorWidget(), const SizedBox(height: kLargeSpacing), GameControls(key: _gameControlsKey), ], ),
+                               ),
+                               Visibility( /* ... New Game Button ... */
+                                 visible: gameProvider.isCompleted,
+                                 child: Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: kExtraLargeSpacing),
+                                    child: Center( child: ElevatedButton.icon(
                                       icon: const Icon(Icons.refresh),
-                                      // --- UPDATED: Use constant for font size ---
                                       label: Text('New Game', style: GoogleFonts.nunito(fontSize: kDefaultFontSizeConst)),
-                                      style: ElevatedButton.styleFrom(
+                                      style: ElevatedButton.styleFrom( /* ... Button Style ... */
                                         backgroundColor: currentTheme.colorScheme.primaryContainer,
                                         foregroundColor: currentTheme.colorScheme.onPrimaryContainer,
-                                        // --- UPDATED: Use constants for padding/font/elevation/radius ---
-                                        padding: const EdgeInsets.symmetric(horizontal: 35, vertical: kDefaultFontSizeConst), // Keep 35 specific or make constant
+                                        padding: const EdgeInsets.symmetric(horizontal: 35, vertical: kDefaultFontSizeConst),
                                         textStyle: GoogleFonts.nunito(fontSize: kDefaultFontSizeConst, fontWeight: FontWeight.w600),
                                         elevation: kHighElevation,
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kMediumRadius)), // Use medium radius?
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kMediumRadius)),
                                       ),
                                       onPressed: () { /* ... New Game Logic ... */
                                          final game = Provider.of<GameProvider>(context, listen: false);
                                          final settings = Provider.of<SettingsProvider>(context, listen: false);
                                          final int initialDifficulty = game.initialDifficultySelection ?? 1;
                                          if (initialDifficulty == -1) { settings.selectRandomPalette(); }
+                                         // --- Reset flag before loading ---
                                          if (mounted) { setState(() { _completionDialogShown = false; }); }
                                          game.loadNewPuzzle(difficulty: initialDifficulty);
                                          _regenerateBokehParticles();
@@ -412,22 +501,22 @@ class _GameScreenState extends State<GameScreen> {
                               ),
                            ],
                           ),
-                          // --- UPDATED: Use constant for spacing ---
                           const SizedBox(height: kMediumSpacing),
-                      ], ), ),
-                  Align( alignment: Alignment.topRight,
-                     // --- UPDATED: Use constant for padding ---
-                     child: Padding( padding: const EdgeInsets.only(top: 4.0, right: 4.0), // Keep specific or make constant
+                      ],
+                    ),
+                  ),
+                  Align( /* ... Difficulty Chip ... */
+                     alignment: Alignment.topRight,
+                     child: Padding(
+                       padding: const EdgeInsets.only(top: 4.0, right: 4.0),
                        child: Consumer<GameProvider>( builder: (context, game, child) {
                           final difficultyLevel = game.currentPuzzleDifficulty;
                           final difficultyText = difficultyLevel != null ? difficultyLabels[difficultyLevel] ?? '?' : '';
                           if (difficultyText.isEmpty) return const SizedBox.shrink();
-                          return Chip(
+                          return Chip( /* ... Chip Style ... */
                               label: Text( difficultyText, style: GoogleFonts.nunito( textStyle: currentTheme.textTheme.labelSmall, color: currentTheme.colorScheme.onSecondaryContainer, fontWeight: FontWeight.w600, ) ),
-                              // --- UPDATED: Use constant for opacity ---
                               backgroundColor: currentTheme.colorScheme.secondaryContainer.withOpacity(kMediumHighOpacity),
-                              // --- UPDATED: Use constant for padding ---
-                              padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 0), // Keep specific or make constant
+                              padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 0),
                               visualDensity: VisualDensity.compact,
                               side: BorderSide.none,
                           );
@@ -435,9 +524,20 @@ class _GameScreenState extends State<GameScreen> {
                        ),
                      ),
                   ),
-                ], ), ), ], ), );
+                ],
+              ),
+            ),
+         ],
+       ),
+    );
   }
 }
 
 // Helper class Tuple2 (Unchanged)
-class Tuple2<T1, T2> { final T1 item1; final T2 item2; Tuple2(this.item1, this.item2); @override bool operator ==(Object other) => other is Tuple2 && item1 == other.item1 && item2 == other.item2; @override int get hashCode => Object.hash(item1, item2); }
+class Tuple2<T1, T2> {
+  final T1 item1;
+  final T2 item2;
+  Tuple2(this.item1, this.item2);
+  @override bool operator ==(Object other) => other is Tuple2 && item1 == other.item1 && item2 == other.item2;
+  @override int get hashCode => Object.hash(item1, item2);
+}

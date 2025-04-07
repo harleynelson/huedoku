@@ -1,7 +1,6 @@
 // File: lib/screens/home_screen.dart
-// Location: Entire File
-// (More than 2 methods/areas affected by constant changes)
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:huedoku/models/color_palette.dart';
@@ -14,8 +13,9 @@ import 'package:provider/provider.dart';
 import 'package:huedoku/themes.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:math';
-// --- UPDATED: Import constants ---
 import 'package:huedoku/constants.dart';
+// --- NEW: Import for Clipboard services ---
+import 'package:flutter/services.dart';
 
 
 class HomeScreen extends StatefulWidget {
@@ -30,33 +30,40 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _particlesInitialized = false;
   int _selectedDifficulty = 1; // Default to Medium (key 1)
 
-  // --- ADD Method to Generate Particles Once (Uses constants) ---
+  // Method to Generate Particles Once
   void _generateInitialBokeh() {
      if (!mounted || _particlesInitialized) return;
+     // Ensure MediaQuery is available and has size
      final mediaQueryData = MediaQuery.of(context);
-     final settings = Provider.of<SettingsProvider>(context, listen: false);
-
      if (mediaQueryData.size.isEmpty || mediaQueryData.size.width <= 0 || mediaQueryData.size.height <= 0) {
-         print("Warning: _generateInitialBokeh called before MediaQuery size is ready.");
+         if (kDebugMode) print("Warning: _generateInitialBokeh called before MediaQuery size is ready. Retrying...");
+         // Retry after frame build if size is not ready
+         SchedulerBinding.instance.addPostFrameCallback((_) => _generateInitialBokeh());
          return;
      }
+
+     final settings = Provider.of<SettingsProvider>(context, listen: false);
      final currentSize = mediaQueryData.size;
      final currentThemeData = appThemes[settings.selectedThemeKey] ?? appThemes[lightThemeKey]!;
      final currentThemeIsDark = currentThemeData.brightness == Brightness.dark;
+     // Use the selected palette for Bokeh colors
      final currentPalette = settings.selectedPalette;
 
-     // --- UPDATED: Use constant for particle count ---
      final newParticles = createBokehParticles(currentSize, currentThemeIsDark, kBokehParticleCount, currentPalette);
 
-     setState(() {
-        _particles = newParticles;
-        _particlesInitialized = true;
-     });
+     // Update state only if mounted
+     if (mounted) {
+       setState(() {
+          _particles = newParticles;
+          _particlesInitialized = true;
+       });
+     }
   }
 
   @override
   void initState() {
     super.initState();
+    // Generate Bokeh after the first frame is built
     SchedulerBinding.instance.addPostFrameCallback((_) {
        _generateInitialBokeh();
     });
@@ -65,6 +72,8 @@ class _HomeScreenState extends State<HomeScreen> {
    @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    // Optionally regenerate Bokeh if theme/palette changes while on home screen
+    // _generateInitialBokeh(); // Or a more sophisticated update check
   }
 
   @override
@@ -72,86 +81,174 @@ class _HomeScreenState extends State<HomeScreen> {
       super.dispose();
   }
 
-  // Helper for Difficulty Icons (Unchanged)
+  // Helper for Difficulty Icons
   IconData _getDifficultyIcon(int difficultyKey) {
       switch(difficultyKey) {
          case -1: return Icons.casino_outlined; // Random
-         case 0: return Icons.cake; // Easy
-         case 1: return Icons.beach_access; // Medium
+         case 0: return Icons.cake_outlined; // Easy (using outline for consistency)
+         case 1: return Icons.beach_access_outlined; // Medium
          case 2: return Icons.local_fire_department_outlined; // Hard
-         case 3: return Icons.volcano; // Icon for "Pain" (Expert)
+         case 3: return Icons.volcano_outlined; // Painful/Expert
          default: return Icons.question_mark;
       }
+  }
+
+  // --- NEW: Method to show the import dialog ---
+  void _showImportDialog(BuildContext context) {
+     final TextEditingController controller = TextEditingController();
+     final gameProvider = Provider.of<GameProvider>(context, listen: false);
+     final currentTheme = Theme.of(context); // Get theme data
+
+     showDialog(
+        context: context,
+        barrierDismissible: false, // User must explicitly cancel or import
+        builder: (BuildContext dialogContext) {
+           return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kMediumRadius)), // Use constant
+              title: Text('Import Puzzle Code', style: GoogleFonts.nunito()),
+              content: TextField(
+                 controller: controller,
+                 autofocus: true,
+                 decoration: InputDecoration(
+                    hintText: 'Paste code here (e.g., M:0105...)',
+                    // Apply theme defaults for consistency
+                    filled: true,
+                    fillColor: currentTheme.inputDecorationTheme.fillColor,
+                    border: currentTheme.inputDecorationTheme.border,
+                    enabledBorder: currentTheme.inputDecorationTheme.enabledBorder,
+                    focusedBorder: currentTheme.inputDecorationTheme.focusedBorder,
+                    contentPadding: currentTheme.inputDecorationTheme.contentPadding,
+                 ),
+                 style: GoogleFonts.nunito(textStyle: currentTheme.textTheme.bodyMedium),
+                 maxLines: 1, // Single line for the code
+                 keyboardType: TextInputType.text, // Standard keyboard
+              ),
+              actions: <Widget>[
+                 TextButton(
+                    child: Text('Cancel', style: GoogleFonts.nunito()),
+                    onPressed: () {
+                       Navigator.of(dialogContext).pop(); // Close the dialog
+                    },
+                 ),
+                 ElevatedButton(
+                   child: Text('Import', style: GoogleFonts.nunito()),
+                   onPressed: () async {
+                      String pastedCode = controller.text.trim(); // Get and trim input
+                      if (pastedCode.isNotEmpty) {
+                         // Attempt to load the puzzle using the provider method
+                         bool success = await gameProvider.loadPuzzleFromString(pastedCode);
+
+                         // IMPORTANT: Close dialog *before* potential navigation or showing SnackBar
+                         Navigator.of(dialogContext).pop();
+
+                         if (success && context.mounted) { // Check context validity after async gap
+                             // Navigate to game screen on successful import
+                             Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => const GameScreen()),
+                             );
+                         } else if (context.mounted) {
+                            // Show error SnackBar if loading failed
+                            ScaffoldMessenger.of(context).showSnackBar(
+                               SnackBar(
+                                  content: const Text('Failed to import puzzle. Check the code format or validity.'),
+                                  duration: kSnackbarDuration, // Use constant
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kSmallRadius)), // Use constant
+                                  backgroundColor: Colors.redAccent, // Use a distinct error color
+                               ),
+                            );
+                         }
+                      }
+                      // If pastedCode is empty, potentially show a message or just do nothing
+                   },
+                 ),
+              ],
+           );
+        },
+     );
   }
 
 
   @override
   Widget build(BuildContext context) {
     final settingsProvider = Provider.of<SettingsProvider>(context);
-    final gameProvider = Provider.of<GameProvider>(context, listen: false);
+    final gameProvider = Provider.of<GameProvider>(context, listen: false); // Don't need to listen here
     final currentTheme = Theme.of(context);
     final Gradient? backgroundGradient = Theme.of(context).extension<AppGradients>()?.backgroundGradient;
     final defaultFallbackGradient = LinearGradient( colors: [ currentTheme.colorScheme.surface, currentTheme.colorScheme.background, ], begin: Alignment.topLeft, end: Alignment.bottomRight, );
 
+    // Safely get title colors
     final List<Color> retroColors = ColorPalette.retro.colors;
     final List<Color> titleColors = retroColors.length >= 8
         ? retroColors.sublist(0, 8)
-        : List.generate(8, (_) => currentTheme.colorScheme.primary);
+        : List.generate(8, (i) => retroColors.isNotEmpty ? retroColors[i % retroColors.length] : currentTheme.colorScheme.primary);
+    final TextStyle baseTitleStyle = GoogleFonts.nunito( textStyle: currentTheme.textTheme.displayMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: currentTheme.colorScheme.primary.withOpacity(kVeryHighOpacity), // Use constant
+                          shadows: [ Shadow( color: currentTheme.colorScheme.shadow.withOpacity(kLowMediumOpacity), blurRadius: 4, offset: const Offset(1, 2) ) ] // Use constants
+                       ) ?? const TextStyle()); // Provide a default TextStyle
+
 
     return Scaffold(
       body: Stack(
         children: [
+          // Background Gradient
           Container(
              decoration: BoxDecoration(
                 gradient: backgroundGradient ?? defaultFallbackGradient
              )
           ),
-
+           // Bokeh Painter (if initialized)
            if (_particlesInitialized)
              CustomPaint(
                 painter: BokehPainter(particles: _particles),
                 size: MediaQuery.of(context).size,
              ),
 
+          // Centered Content
           Center(
-            child: SingleChildScrollView(
-              // --- UPDATED: Use constant for padding ---
-              padding: const EdgeInsets.symmetric(vertical: kMassiveSpacing),
+            child: SingleChildScrollView( // Allows scrolling on smaller screens
+              padding: const EdgeInsets.symmetric(vertical: kMassiveSpacing, horizontal: kDefaultPadding), // Use constants
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: <Widget>[
+                  // Game Title
                   RichText( textAlign: TextAlign.center,
                      text: TextSpan(
-                       // --- UPDATED: Use constants for shadow/opacity ---
-                       style: GoogleFonts.nunito( textStyle: currentTheme.textTheme.displayMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: currentTheme.colorScheme.primary.withOpacity(kVeryHighOpacity),
-                          shadows: [ Shadow( color: currentTheme.colorScheme.shadow.withOpacity(kLowMediumOpacity), blurRadius: 4, offset: const Offset(1, 2) ) ] // Keep specific or make constants
-                       ) ),
-                       children: <TextSpan>[ TextSpan(text: 'R', style: TextStyle(color: titleColors[1])), TextSpan(text: 'a', style: TextStyle(color: titleColors[2])), TextSpan(text: 'i', style: TextStyle(color: titleColors[0])), TextSpan(text: 'n', style: TextStyle(color: titleColors[3])), TextSpan(text: 'b', style: TextStyle(color: titleColors[4])), TextSpan(text: 'o', style: TextStyle(color: titleColors[5])), TextSpan(text: 'k', style: TextStyle(color: titleColors[6])), TextSpan(text: 'u', style: TextStyle(color: titleColors[7])), ],
+                       style: baseTitleStyle,
+                       children: <TextSpan>[
+                         TextSpan(text: 'R', style: TextStyle(color: titleColors[1 % titleColors.length])),
+                         TextSpan(text: 'a', style: TextStyle(color: titleColors[2 % titleColors.length])),
+                         TextSpan(text: 'i', style: TextStyle(color: titleColors[0 % titleColors.length])),
+                         TextSpan(text: 'n', style: TextStyle(color: titleColors[3 % titleColors.length])),
+                         TextSpan(text: 'b', style: TextStyle(color: titleColors[4 % titleColors.length])),
+                         TextSpan(text: 'o', style: TextStyle(color: titleColors[5 % titleColors.length])),
+                         TextSpan(text: 'k', style: TextStyle(color: titleColors[6 % titleColors.length])),
+                         TextSpan(text: 'u', style: TextStyle(color: titleColors[7 % titleColors.length])),
+                       ],
                      ),
                   ),
-                  // --- UPDATED: Use constant for spacing ---
-                  const SizedBox(height: kHugeSpacing),
+                  const SizedBox(height: kHugeSpacing), // Use constant
+
+                  // Difficulty Selection Section
                   Text( "Select Difficulty", style: GoogleFonts.nunito(textStyle: currentTheme.textTheme.titleMedium) ),
-                  // --- UPDATED: Use constant for spacing ---
-                  const SizedBox(height: kSmallSpacing),
+                  const SizedBox(height: kSmallSpacing), // Use constant
                   Container(
-                     // --- UPDATED: Use constant for max width ---
-                     constraints: const BoxConstraints(maxWidth: kHomeMaxWidth),
-                     width: double.infinity,
+                     constraints: const BoxConstraints(maxWidth: kHomeMaxWidth), // Use constant
+                     width: double.infinity, // Take constrained width
                      alignment: Alignment.center,
                     child: Container(
-                       // --- UPDATED: Use constant for padding ---
-                       margin: const EdgeInsets.symmetric(horizontal: kExtraLargePadding),
+                       margin: const EdgeInsets.symmetric(horizontal: 0), // Adjust horizontal margin if needed
                        padding: const EdgeInsets.symmetric(vertical: 5.0), // Keep specific or make constant
                       decoration: BoxDecoration(
-                         // --- UPDATED: Use constants for opacity/radius/border ---
-                         color: currentTheme.colorScheme.surfaceVariant.withOpacity(kMediumOpacity),
-                         borderRadius: BorderRadius.circular(kMediumRadius),
-                         border: Border.all(color: currentTheme.colorScheme.outline.withOpacity(kLowMediumOpacity), width: 0.5) // Keep specific or make constant
+                         color: currentTheme.colorScheme.surfaceVariant.withOpacity(kMediumOpacity), // Use constants
+                         borderRadius: BorderRadius.circular(kMediumRadius), // Use constant
+                         border: Border.all(color: currentTheme.colorScheme.outline.withOpacity(kLowMediumOpacity), width: 0.5) // Use constants
                       ),
-                      child: Column( mainAxisSize: MainAxisSize.min, children: difficultyLabels.entries.map((entry) {
+                      child: Column( // Use Column for RadioListTiles
+                         mainAxisSize: MainAxisSize.min,
+                         children: difficultyLabels.entries.map((entry) {
                             final int difficultyKey = entry.key;
                             final String difficultyLabel = entry.value;
                             return RadioListTile<int>(
@@ -161,53 +258,75 @@ class _HomeScreenState extends State<HomeScreen> {
                                groupValue: _selectedDifficulty,
                                onChanged: (int? value) { if (value != null) { setState(() { _selectedDifficulty = value; }); } },
                                activeColor: currentTheme.colorScheme.primary,
-                               dense: true,
-                               // --- UPDATED: Use constant for padding ---
-                               contentPadding: const EdgeInsets.symmetric(horizontal: kLargePadding, vertical: 0),
+                               dense: true, // Make tiles more compact
+                               contentPadding: const EdgeInsets.symmetric(horizontal: kLargePadding, vertical: 0), // Use constant
                             );
                           }).toList(),
                       ),
                     ),
                   ),
-                  // --- UPDATED: Use constant for spacing ---
-                  const SizedBox(height: kHugeSpacing),
+                  const SizedBox(height: kHugeSpacing), // Use constant
+
+                  // Action Buttons
                   ElevatedButton.icon(
                      icon: const Icon(Icons.play_arrow),
-                     // --- UPDATED: Use constant for font size ---
-                     label: Text('New Game', style: GoogleFonts.nunito(fontSize: kDefaultFontSizeConst)),
+                     label: Text('New Game', style: GoogleFonts.nunito(fontSize: kDefaultFontSizeConst)), // Use constant
                      style: ElevatedButton.styleFrom(
                        backgroundColor: currentTheme.colorScheme.primaryContainer,
                        foregroundColor: currentTheme.colorScheme.onPrimaryContainer,
-                       // --- UPDATED: Use constants for padding/font/elevation/radius ---
-                       padding: const EdgeInsets.symmetric(horizontal: 35, vertical: kDefaultFontSizeConst), // Keep specific or make constant
-                       textStyle: GoogleFonts.nunito(fontSize: kDefaultFontSizeConst, fontWeight: FontWeight.w600),
-                       elevation: kHighElevation,
-                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kMediumRadius)),
+                       padding: const EdgeInsets.symmetric(horizontal: 35, vertical: kDefaultFontSizeConst), // Use constant for vertical
+                       textStyle: GoogleFonts.nunito(fontSize: kDefaultFontSizeConst, fontWeight: FontWeight.w600), // Use constant
+                       elevation: kHighElevation, // Use constant
+                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kMediumRadius)), // Use constant
                      ),
-                    onPressed: () { /* ... New Game Logic ... */
+                    onPressed: () {
                       final settings = Provider.of<SettingsProvider>(context, listen: false);
                       final game = Provider.of<GameProvider>(context, listen: false);
-                      if (_selectedDifficulty == -1) { settings.selectRandomPalette(); game.loadNewPuzzle(difficulty: -1); }
-                      else { game.loadNewPuzzle(difficulty: _selectedDifficulty); }
+                      // Select random palette only if 'Random' difficulty is chosen
+                      if (_selectedDifficulty == -1) {
+                         settings.selectRandomPalette();
+                      }
+                      // Load puzzle with selected difficulty
+                      game.loadNewPuzzle(difficulty: _selectedDifficulty);
+                      // Navigate to the game screen
                       Navigator.push( context, MaterialPageRoute(builder: (context) => const GameScreen()), );
                     },
                   ),
-                  // --- UPDATED: Use constant for spacing ---
-                  const SizedBox(height: kExtraLargeSpacing), // Was 25, using constant
+                  const SizedBox(height: kExtraLargeSpacing), // Use constant
                   ElevatedButton.icon(
                      icon: const Icon(Icons.settings_outlined),
-                     // --- UPDATED: Use constant for font size ---
-                     label: Text('Settings', style: GoogleFonts.nunito(fontSize: kDefaultFontSizeConst)),
+                     label: Text('Settings', style: GoogleFonts.nunito(fontSize: kDefaultFontSizeConst)), // Use constant
                      style: ElevatedButton.styleFrom(
                        backgroundColor: currentTheme.colorScheme.secondaryContainer,
                        foregroundColor: currentTheme.colorScheme.onSecondaryContainer,
-                       // --- UPDATED: Use constants for padding/font/elevation/radius ---
-                       padding: const EdgeInsets.symmetric(horizontal: 35, vertical: kDefaultFontSizeConst), // Keep specific or make constant
-                       textStyle: GoogleFonts.nunito(fontSize: kDefaultFontSizeConst, fontWeight: FontWeight.w600),
-                       elevation: kHighElevation,
-                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kMediumRadius)),
+                       padding: const EdgeInsets.symmetric(horizontal: 35, vertical: kDefaultFontSizeConst), // Use constant for vertical
+                       textStyle: GoogleFonts.nunito(fontSize: kDefaultFontSizeConst, fontWeight: FontWeight.w600), // Use constant
+                       elevation: kHighElevation, // Use constant
+                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kMediumRadius)), // Use constant
                      ),
-                    onPressed: () { Navigator.push( context, MaterialPageRoute(builder: (context) => const SettingsScreen()), ); },
+                    onPressed: () {
+                       // Navigate to the settings screen
+                       Navigator.push( context, MaterialPageRoute(builder: (context) => const SettingsScreen()), );
+                    },
+                  ),
+
+                   // --- NEW: Import Puzzle Button ---
+                  const SizedBox(height: kExtraLargeSpacing), // Use constant
+                  ElevatedButton.icon(
+                     icon: const Icon(Icons.content_paste_go_outlined), // Import Icon
+                     label: Text('Import Puzzle', style: GoogleFonts.nunito(fontSize: kDefaultFontSizeConst)), // Use constant
+                     style: ElevatedButton.styleFrom(
+                       // Consistent styling with other buttons
+                       backgroundColor: currentTheme.colorScheme.tertiaryContainer, // Use tertiary color
+                       foregroundColor: currentTheme.colorScheme.onTertiaryContainer,
+                       padding: const EdgeInsets.symmetric(horizontal: 35, vertical: kDefaultFontSizeConst), // Use constant for vertical
+                       textStyle: GoogleFonts.nunito(fontSize: kDefaultFontSizeConst, fontWeight: FontWeight.w600), // Use constant
+                       elevation: kHighElevation, // Use constant
+                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kMediumRadius)), // Use constant
+                     ),
+                    onPressed: () {
+                       _showImportDialog(context); // Call the dialog method
+                    },
                   ),
                 ],
               ),
