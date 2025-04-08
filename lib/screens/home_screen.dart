@@ -191,7 +191,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
 
     // --- Placeholder App Version ---
-    const String appVersion = "v1.0.1"; // Replace with dynamic version later
+    const String appVersion = "v1.0.2"; // Replace with dynamic version later
 
     return Scaffold(
       body: Stack( // Use Stack to layer main content and version text

@@ -805,6 +805,27 @@ class GameProvider extends ChangeNotifier {
      return (solutionCount > 0 && solutionCount == boardCorrectCount) || (solutionCount == kGridSize && boardCorrectCount == kGridSize) ;
   }
 
+  void resetGame() {
+    _board = [];
+    _solutionBoard = [];
+    _isPuzzleLoaded = false;
+    _isEditingCandidates = false;
+    _selectedRow = null;
+    _selectedCol = null;
+    _currentPuzzleDifficulty = null;
+    _initialDifficultySelection = null; // Also reset initial selection
+    resetTimer(); // Reset and stop timer
+    _isPaused = false;
+    _isCompleted = false;
+    _history.clear();
+    _hintsUsed = 0;
+    _currentPuzzleString = null;
+    _runIntroNumberAnimation = false; // Reset intro animation flag
+
+    if (kDebugMode) print("GameProvider state reset.");
+    notifyListeners(); // Notify listeners to rebuild UI reflecting the reset state
+  }
+
 
   bool isColorUsedInSelectionContext(int colorIndex, int row, int col) {
       if (!_isPuzzleLoaded || _board.isEmpty) return false;

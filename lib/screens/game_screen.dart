@@ -26,6 +26,7 @@ import 'package:flutter/services.dart';
 // --- Import for Sharing ---
 import 'package:share_plus/share_plus.dart';
 import 'package:huedoku/color_puns.dart';
+import 'package:web/web.dart' as web;
 
 
 class GameScreen extends StatefulWidget {
@@ -381,18 +382,17 @@ class _GameScreenState extends State<GameScreen> {
     });
 
     return Scaffold(
-      backgroundColor: Colors.transparent, // Let container gradient show through
-      extendBodyBehindAppBar: true, // Allow body content to draw behind AppBar
+      backgroundColor: Colors.transparent,
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-         backgroundColor: currentTheme.brightness == Brightness.dark ? Colors.black.withOpacity(kLowMediumOpacity) : Colors.white.withOpacity(kLowOpacity), // Use constants for opacity
-         elevation: 0, // No shadow
-         foregroundColor: currentTheme.colorScheme.onSurface, // Icon/text color based on theme
-         // Dynamic title using colors
-         title: RichText(
+         backgroundColor: currentTheme.brightness == Brightness.dark ? Colors.black.withOpacity(kLowMediumOpacity) : Colors.white.withOpacity(kLowOpacity),
+         elevation: 0,
+         foregroundColor: currentTheme.colorScheme.onSurface,
+         title: RichText( /* ... Title remains the same ... */
            text: TextSpan(
-             style: baseTitleStyle, // Apply base style
-             children: <TextSpan>[ // Create spans for each letter with specific colors
-               TextSpan(text: 'R', style: TextStyle(color: titleColors[1 % titleColors.length])), // Use modulo for safety if palette size < 8
+             style: baseTitleStyle,
+             children: <TextSpan>[
+               TextSpan(text: 'R', style: TextStyle(color: titleColors[1 % titleColors.length])),
                TextSpan(text: 'a', style: TextStyle(color: titleColors[2 % titleColors.length])),
                TextSpan(text: 'i', style: TextStyle(color: titleColors[0 % titleColors.length])),
                TextSpan(text: 'n', style: TextStyle(color: titleColors[3 % titleColors.length])),
@@ -403,37 +403,52 @@ class _GameScreenState extends State<GameScreen> {
              ],
            ),
          ),
-         // --- UPDATED Back button logic ---
+         // --- CORRECTED Back button logic ---
          leading: IconButton(
             icon: const Icon(Icons.arrow_back),
             tooltip: 'Back to Home',
             onPressed: () {
-              gameProvider.pauseGame(); // Pause timer before leaving screen
-              // Use go_router to navigate explicitly to the home route '/'
-              GoRouter.of(context).go('/');
-              // --- OLD CODE: Navigator.pop(context); ---
+              final router = GoRouter.of(context); // Get router instance
+              final game = Provider.of<GameProvider>(context, listen: false); // Get provider instance
+
+              if (router.canPop()) {
+                 // --- Scenario 1: Normal Navigation History Exists ---
+                 // We likely navigated from HomeScreen normally. Just pop back.
+                 game.pauseGame(); // Pause game before leaving
+                 context.pop(); // Use router's pop
+
+              } else {
+                 // --- Scenario 2: No Navigation History (Likely URL Load) ---
+                 if (kIsWeb) {
+                    // --- Sub-Scenario 2a: Web + URL Load -> Temporary Fix ---
+                    // Force reload to the base hash route. Adjust URL if needed.
+                    final homeUrl = '/rainboku/#/'; // Assumes hash strategy and /rainboku base path
+                    web.window.location.href = homeUrl;
+                    // No need to pause game here as the page is reloading entirely
+
+                 } else {
+                    // --- Sub-Scenario 2b: Non-Web + URL Load (or other edge case) ---
+                    // Navigate explicitly to the home route.
+                    game.pauseGame(); // Pause game before leaving
+                    context.go('/');
+                 }
+              }
             },
          ),
-         // --- END UPDATED Back button logic ---
-
-         // Action buttons in AppBar
-         actions: [
+         // --- END CORRECTED Back button logic ---
+         actions: [ /* ... Actions remain the same ... */
              // Pause/Resume Button
-             Selector<GameProvider, Tuple2<bool, bool>>( // Listen only to pause/completion state
+             Selector<GameProvider, Tuple2<bool, bool>>(
                 selector: (_, game) => Tuple2(game.isPaused, game.isCompleted),
                 builder: (context, data, child) {
                    final isPaused = data.item1;
                    final isCompleted = data.item2;
                    return IconButton(
-                      icon: Icon(isPaused ? Icons.play_arrow : Icons.pause, color: isCompleted ? Colors.grey : null), // Dim icon if completed
+                      icon: Icon(isPaused ? Icons.play_arrow : Icons.pause, color: isCompleted ? Colors.grey : null),
                       tooltip: isCompleted ? 'Game Over' : (isPaused ? 'Resume' : 'Pause'),
-                      onPressed: isCompleted ? null : () { // Disable button if completed
+                      onPressed: isCompleted ? null : () {
                          final game = Provider.of<GameProvider>(context, listen: false);
-                         if (game.isPaused) {
-                           game.resumeGame();
-                         } else {
-                           game.pauseGame();
-                         }
+                         if (game.isPaused) { game.resumeGame(); } else { game.pauseGame(); }
                       },
                    );
                 }
@@ -442,7 +457,7 @@ class _GameScreenState extends State<GameScreen> {
             IconButton(
               icon: const Icon(Icons.settings_outlined),
               tooltip: 'Settings',
-              onPressed: () { _showSettingsSheet(context); }, // Show modal bottom sheet
+              onPressed: () { _showSettingsSheet(context); },
             ),
          ],
        ),
