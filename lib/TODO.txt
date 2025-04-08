@@ -1,0 +1,83 @@
+// running TODO
+
+- puzzle solved dialog "New Game" button should be larger and more noticeable.
+
+- update puzzle code to encode hints used and time taken and eventually be able to be loaded by clicking url.  Might need a different format without colon.  Anything else?
+    - we don't necessarily need to use this information, but it'd be nice to have available for challenges
+
+- Set up URL to be able to load game by clicking url:
+    - ie rainboku.io/m0203352...
+
+- award points based on difficulty, time, and hints used
+
+- achievements
+    - we need to code differently in order to track stats
+    - app vs web
+        - app: likely easier for persistence of settings
+        - web: we'd need an account likely
+    Completion Achievements:
+
+        First Hue: Complete your first Rainboku puzzle on any difficulty.
+        Easy Breezy: Complete your first Easy puzzle.
+        Medium Well: Complete your first Medium puzzle.
+        Hard Fought: Complete your first Hard puzzle.
+        Painfully Good: Complete your first Painful puzzle.
+        Feeling Lucky?: Complete your first Random difficulty puzzle.
+        Rainbow Road: Complete one puzzle on each difficulty level (Easy, Medium, Hard, Painful).
+        Color Connoisseur: Complete 10 puzzles on any difficulty.
+        Spectrum Master: Complete 25 puzzles on any difficulty.
+        Hue're A Legend: Complete 50 puzzles on any difficulty.
+        Chromatic Champion: Complete 100 puzzles on any difficulty.
+        Easy Dominator: Complete 10 Easy puzzles.
+        Medium Maven: Complete 10 Medium puzzles.
+        Hardened Veteran: Complete 10 Hard puzzles.
+        Masochist: Complete 10 Painful puzzles.
+
+    Difficulty & Perfection Achievements:
+
+        Perfect Start: Complete an Easy puzzle with no errors and no hints.
+        Flawless Medium: Complete a Medium puzzle with no errors and no hints.
+        Hardcore Purity: Complete a Hard puzzle with no errors and no hints.
+        Zen Master: Complete a Painful puzzle with no errors and no hints.
+        Hint? Never Heard of It: Complete any puzzle (Medium or harder) without using any hints.
+        Error-Free: Complete any puzzle (Medium or harder) without triggering the error highlight (requires Show Errors Instantly to be potentially off, or just playing perfectly).
+        Pure Victory: Complete 5 puzzles in a row (any difficulty) without using hints.
+        Untouchable: Complete 3 puzzles in a row (Medium or harder) with no errors and no hints.
+
+    Speed Achievements:
+
+        Quick Hue: Complete an Easy puzzle in under 5 minutes.
+        Rapid Rainbow: Complete a Medium puzzle in under 10 minutes.
+        Hard Haste: Complete a Hard puzzle in under 20 minutes.
+        Painfully Quick: Complete a Painful puzzle in under 30 minutes.
+        Speed Demon: Beat your personal best time on any difficulty (requires tracking best times).
+
+    Feature Usage Achievements:
+
+        Palette Explorer: Play a game using 5 different color palettes.
+        Full Spectrum: Play a game using every available color palette at least once.
+        What's That? Oh, Numbers: Complete a puzzle using the 'Numbers' overlay.
+        Pattern Recognition: Complete a puzzle using the 'Patterns' overlay.
+        Overlay Curious: Try all three cell content modes (Color Only, Numbers, Patterns).
+        Helpful Hand: Use the Hint feature 5 times (across any number of games).
+        Undo Overlord: Use the Undo feature 25 times.
+        Candidate Master: Place 50 candidate marks correctly (marks that correspond to the final solution in their cell).
+        Sharing is Caring: Use the "Brag" button after completing a puzzle.
+        Code Copier: Use the "Copy Puzzle Code" button after completing a puzzle.
+        Challenge Accepted: Import and complete a puzzle using a shared code.
+        Settings Tinkerer: Change at least 3 different settings in the Settings menu.
+        Dark Mode Dweller: Complete a puzzle while using the Dark theme.
+        Light Mode Loyalist: Complete a puzzle while using the Light theme.
+
+    Streak & Meta Achievements:
+
+        Warming Up: Complete 3 puzzles in a row (any difficulty).
+        On a Roll: Complete 5 puzzles in a row (any difficulty).
+        Unstoppable: Complete 10 puzzles in a row (any difficulty).
+        Daily Dose: Complete a puzzle on 3 consecutive days.
+        Weekly Wonder: Complete a puzzle on 7 consecutive days.
+        Night Owl: Complete a puzzle between midnight and 4 AM local time.
+        Early Bird: Complete a puzzle between 5 AM and 8 AM local time.
+        Monochrome Mood: Complete a puzzle using the 'Monochrome' palette.
+        Retro Vibes: Complete a puzzle using the 'Retro' palette.
+
