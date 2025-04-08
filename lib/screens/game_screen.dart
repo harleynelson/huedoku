@@ -408,29 +408,56 @@ class _GameScreenState extends State<GameScreen> {
             icon: const Icon(Icons.arrow_back),
             tooltip: 'Back to Home',
             onPressed: () {
-              final router = GoRouter.of(context); // Get router instance
-              final game = Provider.of<GameProvider>(context, listen: false); // Get provider instance
+              print("[DEBUG] Back Button Pressed"); // Keep debug logs
+              final router = GoRouter.of(context);
+              final game = Provider.of<GameProvider>(context, listen: false);
 
               if (router.canPop()) {
                  // --- Scenario 1: Normal Navigation History Exists ---
-                 // We likely navigated from HomeScreen normally. Just pop back.
-                 game.pauseGame(); // Pause game before leaving
-                 context.pop(); // Use router's pop
+                 print("[DEBUG] router.canPop() is TRUE - using context.pop()");
+                 game.pauseGame(); // Pause game state
+                 // Ensure pop happens after potential state update settles
+                 Future.delayed(Duration.zero, () {
+                   // Check if context is still valid after delay before popping
+                   if (context.mounted) {
+                     print("[DEBUG] Executing context.pop() after delay");
+                     context.pop();
+                   }
+                 });
 
               } else {
                  // --- Scenario 2: No Navigation History (Likely URL Load) ---
+                 print("[DEBUG] router.canPop() is FALSE - checking kIsWeb");
                  if (kIsWeb) {
-                    // --- Sub-Scenario 2a: Web + URL Load -> Temporary Fix ---
-                    // Force reload to the base hash route. Adjust URL if needed.
-                    final homeUrl = '/rainboku/#/'; // Assumes hash strategy and /rainboku base path
-                    web.window.location.href = homeUrl;
-                    // No need to pause game here as the page is reloading entirely
+                    // --- Sub-Scenario 2a: Web + URL Load -> Temporary Fix (Delayed) ---
+                    print("[DEBUG] kIsWeb is TRUE - attempting delayed web reload");
+                    final homeUrl = '/rainboku/#/'; // Adjust if needed
+                    print("[DEBUG] Scheduling window.location.href set to: $homeUrl");
+                    // Use Future.delayed to push execution slightly later
+                    Future.delayed(Duration.zero, () {
+                      print("[DEBUG] Executing window.location.href = homeUrl");
+                      try {
+                         web.window.location.href = homeUrl;
+                         // Note: No print after this will execute if reload is successful
+                      } catch (e) {
+                         // This might not be reachable if href works, but good practice
+                         print("[DEBUG] ERROR setting window.location.href: $e");
+                      }
+                    });
+                    // No game pause needed as page reloads
 
                  } else {
-                    // --- Sub-Scenario 2b: Non-Web + URL Load (or other edge case) ---
-                    // Navigate explicitly to the home route.
-                    game.pauseGame(); // Pause game before leaving
-                    context.go('/');
+                    // --- Sub-Scenario 2b: Non-Web + URL Load (Delayed) ---
+                    print("[DEBUG] kIsWeb is FALSE - using delayed context.go('/')");
+                    game.pauseGame(); // Pause game state
+                    // Use Future.delayed before navigation
+                    Future.delayed(Duration.zero, () {
+                      // Check if context is still valid after delay
+                      if (context.mounted) {
+                        print("[DEBUG] Executing context.go('/') after delay");
+                        context.go('/');
+                      }
+                    });
                  }
               }
             },
