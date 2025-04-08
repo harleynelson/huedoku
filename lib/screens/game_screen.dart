@@ -26,8 +26,11 @@ import 'package:flutter/services.dart';
 // --- Import for Sharing ---
 import 'package:share_plus/share_plus.dart';
 import 'package:huedoku/color_puns.dart';
-import 'package:web/web.dart' as web;
-
+// This imports a stub implementation on non-web platforms,
+// and the actual 'package:web' implementation on the web.
+import '../stub/web_interop_stub.dart'
+    if (dart.library.html) 'package:web/web.dart'
+    as web_interop;
 
 class GameScreen extends StatefulWidget {
   const GameScreen({super.key});
@@ -429,21 +432,19 @@ class _GameScreenState extends State<GameScreen> {
                  // --- Scenario 2: No Navigation History (Likely URL Load) ---
                  print("[DEBUG] router.canPop() is FALSE - checking kIsWeb");
                  if (kIsWeb) {
-                    // --- Sub-Scenario 2a: Web + URL Load -> Temporary Fix (Delayed) ---
-                    print("[DEBUG] kIsWeb is TRUE - attempting delayed web reload");
-                    final homeUrl = '/rainboku/#/'; // Adjust if needed
-                    print("[DEBUG] Scheduling window.location.href set to: $homeUrl");
-                    // Use Future.delayed to push execution slightly later
-                    Future.delayed(Duration.zero, () {
-                      print("[DEBUG] Executing window.location.href = homeUrl");
-                      try {
-                         web.window.location.href = homeUrl;
-                         // Note: No print after this will execute if reload is successful
-                      } catch (e) {
-                         // This might not be reachable if href works, but good practice
-                         print("[DEBUG] ERROR setting window.location.href: $e");
-                      }
-                    });
+                print("[DEBUG] kIsWeb is TRUE - attempting delayed web reload");
+                final homeUrl = '/rainboku/#/'; // Adjust if needed
+                print("[DEBUG] Scheduling window.location.href set to: $homeUrl");
+                Future.delayed(Duration.zero, () {
+                  print("[DEBUG] Executing window.location.href = homeUrl");
+                  try {
+                     // --- Use the conditional import alias ---
+                     web_interop.window.location.href = homeUrl;
+                     // ---
+                  } catch (e) {
+                     print("[DEBUG] ERROR setting window.location.href: $e");
+                  }
+                });
                     // No game pause needed as page reloads
 
                  } else {
