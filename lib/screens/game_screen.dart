@@ -211,7 +211,7 @@ class _GameScreenState extends State<GameScreen> {
     final bool isDark = dialogTheme.brightness == Brightness.dark;
     final String difficultyLabel = difficultyLabels[gameProvider.currentPuzzleDifficulty ?? 1] ?? 'Medium';
     final int hints = gameProvider.hintsUsed;
-    final String? puzzleCode = gameProvider.currentPuzzleString; // Get the code
+    final String? puzzleCode = gameProvider.currentPuzzleString; // Get the code (e.g., "M:2:010...")
 
     showDialog(
       context: context,
@@ -220,24 +220,23 @@ class _GameScreenState extends State<GameScreen> {
         return Dialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kLargeRadius)),
           elevation: kHighElevation,
-          backgroundColor: Colors.transparent, // Keep this transparent
+          backgroundColor: Colors.transparent,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(kLargeRadius),
-            child: BackdropFilter( // Apply blur to background behind the dialog
+            child: BackdropFilter(
               filter: ui.ImageFilter.blur(sigmaX: 8.0, sigmaY: 8.0),
-              child: Container( // This container provides the dialog background color/opacity
-                padding: const EdgeInsets.all(kExtraLargePadding), // Padding inside the dialog
+              child: Container(
+                padding: const EdgeInsets.all(kExtraLargePadding),
                 decoration: BoxDecoration(
                   color: dialogTheme.colorScheme.surface.withOpacity(isDark ? kHighOpacity : kVeryHighOpacity),
                   borderRadius: BorderRadius.circular(kLargeRadius),
                 ),
-                // --- FIX: Add Container with constraints here ---
                 child: Container(
-                  constraints: const BoxConstraints(maxWidth: kHomeMaxWidth), // Constrain the width
-                  child: Column( // This Column holds the actual content
-                    mainAxisSize: MainAxisSize.min, // Make column height fit content
+                  constraints: const BoxConstraints(maxWidth: kHomeMaxWidth),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
-                      // --- Title and Info (Same as before) ---
+                      // --- Title and Info ---
                       Icon( Icons.emoji_events_outlined, color: dialogTheme.colorScheme.primary, size: 40.0, ),
                       const SizedBox(height: kSmallSpacing),
                       Text( 'Puzzle Solved!', style: GoogleFonts.nunito( textStyle: dialogTextTheme.headlineSmall, fontWeight: FontWeight.bold), textAlign: TextAlign.center, ),
@@ -249,7 +248,7 @@ class _GameScreenState extends State<GameScreen> {
                       Text( 'Your Time:', style: GoogleFonts.nunito( textStyle: dialogTextTheme.bodyMedium), textAlign: TextAlign.center, ),
                       const SizedBox(height: kSmallSpacing),
                       Text( _formatDuration(finalTime),
-                        style: GoogleFonts.nunito( /* ... Time Style ... */
+                        style: GoogleFonts.nunito(
                           fontSize: dialogTextTheme.headlineMedium!.fontSize,
                           fontWeight: FontWeight.bold,
                           color: dialogTheme.colorScheme.primary,
@@ -261,46 +260,73 @@ class _GameScreenState extends State<GameScreen> {
 
                       // --- Action Buttons ---
                       Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch, // Buttons still stretch to constrained width
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          ElevatedButton.icon( /* ... Brag Button ... */
+                          // --- UPDATED Brag Button ---
+                          ElevatedButton.icon(
                             icon: Icon(kIsWeb ? Icons.copy_outlined : Icons.share_outlined),
                             label: Text(kIsWeb ? 'Brag about it' : 'Brag about it', style: GoogleFonts.nunito()),
-                            style: ElevatedButton.styleFrom( /* ... Style ... */
+                            style: ElevatedButton.styleFrom(
                              padding: const EdgeInsets.symmetric(vertical: kMediumPadding),
                              backgroundColor: dialogTheme.colorScheme.secondaryContainer,
                              foregroundColor: dialogTheme.colorScheme.onSecondaryContainer,
+                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kMediumRadius)),
                             ),
-                            onPressed: () { /* ... Brag logic (copy/share) ... */
+                            onPressed: () {
                                 final String timeStr = _formatDuration(finalTime);
+                                // Base brag text
                                 String shareText = "I solved a $difficultyLabel Rainboku puzzle in $timeStr with $hints hint${hints == 1 ? '' : 's'}! 🌈";
+
+                                // --- Construct the full URL ---
                                 if (puzzleCode != null) {
-                                   shareText += "\n\nThink you can beat me? Try the same puzzle! #Rainboku\n\nPuzzle Code: $puzzleCode ";
-                                } else { shareText += " #Rainboku"; }
+                                   // IMPORTANT: Replace with your actual domain!
+                                   const String baseDomain = "www.alpentor.com/rainboku";
+                                   // URL-encode the puzzle code for safety
+                                   final String encodedCode = Uri.encodeQueryComponent(puzzleCode);
+                                   // Construct the full URL using hash routing and query parameter
+                                   final String fullUrl = "$baseDomain/#/play?code=$encodedCode";
+                                   shareText += "\n\nThink you can beat me? Try the same puzzle! #Rainboku\n\nWeb link:\n$fullUrl\n\nIn game puzzle code:\n$puzzleCode";
+                                } else {
+                                   shareText += " #Rainboku"; // Add hashtag if no code available
+                                }
+
+                                // --- Share or Copy ---
                                 if (kIsWeb) {
                                   Clipboard.setData(ClipboardData(text: shareText));
-                                  if (dialogContext.mounted) { ScaffoldMessenger.of(dialogContext).showSnackBar( SnackBar( /* ... SnackBar ... */ content: const Text('Brag text copied to clipboard!'), duration: kSnackbarDuration, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kSmallRadius)), ), ); }
+                                  if (dialogContext.mounted) { ScaffoldMessenger.of(dialogContext).showSnackBar( SnackBar( content: const Text('Brag text with link copied to clipboard!'), duration: kSnackbarDuration, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kSmallRadius)), ), ); }
                                 } else { Share.share(shareText); }
                             },
                           ),
+                          // --- END UPDATED Brag Button ---
+
                           const SizedBox(height: kSmallSpacing),
-                          if (puzzleCode != null) ElevatedButton.icon( /* ... Copy Code Only Button ... */
+                          if (puzzleCode != null) ElevatedButton.icon(
                                 icon: const Icon(Icons.copy_all_outlined),
                                 label: Text('Copy Puzzle Code', style: GoogleFonts.nunito()),
-                                style: ElevatedButton.styleFrom( /* ... Style ... */
+                                style: ElevatedButton.styleFrom(
                                   padding: const EdgeInsets.symmetric(vertical: kMediumPadding),
                                   backgroundColor: dialogTheme.colorScheme.tertiaryContainer,
                                   foregroundColor: dialogTheme.colorScheme.onTertiaryContainer,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kMediumRadius)),
                                 ),
-                                onPressed: () { /* ... Clipboard logic ... */
+                                onPressed: () {
                                    Clipboard.setData(ClipboardData(text: puzzleCode));
-                                   if (dialogContext.mounted) { ScaffoldMessenger.of(dialogContext).showSnackBar( SnackBar( /* ... SnackBar ... */ content: const Text('Puzzle code copied to clipboard!'), duration: kSnackbarDuration, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kSmallRadius)), ), ); }
+                                   if (dialogContext.mounted) { ScaffoldMessenger.of(dialogContext).showSnackBar( SnackBar( content: const Text('Puzzle code copied to clipboard!'), duration: kSnackbarDuration, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kSmallRadius)), ), ); }
                                 },
                               ),
-                          if (puzzleCode != null) const SizedBox(height: kSmallSpacing),
-                          TextButton( /* ... New Game Button ... */
-                            child: Text('New Game', style: GoogleFonts.nunito(textStyle: dialogTextTheme.labelLarge)),
-                            onPressed: () { /* ... New Game Logic ... */
+                          if (puzzleCode != null) const SizedBox(height: kLargeSpacing),
+
+                          ElevatedButton.icon(
+                            icon: const Icon(Icons.refresh),
+                            label: Text('New Game', style: GoogleFonts.nunito()),
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: kLargePadding),
+                              backgroundColor: dialogTheme.colorScheme.primaryContainer,
+                              foregroundColor: dialogTheme.colorScheme.onPrimaryContainer,
+                              textStyle: GoogleFonts.nunito(textStyle: dialogTextTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kMediumRadius)),
+                            ),
+                            onPressed: () {
                                  final int initialDifficulty = gameProvider.initialDifficultySelection ?? 1;
                                  if (initialDifficulty == -1) { settingsProvider.selectRandomPalette(); }
                                  Navigator.of(dialogContext).pop();
@@ -310,10 +336,11 @@ class _GameScreenState extends State<GameScreen> {
                                  _startIntroAnimationSequenceIfNeeded();
                              },
                           ),
+
+                          const SizedBox(height: kSmallSpacing),
                           TextButton(
                             child: Text('Close', style: GoogleFonts.nunito(textStyle: dialogTextTheme.labelLarge?.copyWith(color: dialogTheme.colorScheme.onSurface.withOpacity(0.7)))),
                             onPressed: () {
-                                 // --- FIX: ONLY pop. Do NOT change _completionDialogShown here. ---
                                  Navigator.of(dialogContext).pop();
                              },
                           ),
@@ -322,7 +349,6 @@ class _GameScreenState extends State<GameScreen> {
                     ],
                   ),
                 ),
-                // --- End of Added Container with constraints ---
               ),
             ),
           ),

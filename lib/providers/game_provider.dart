@@ -1,5 +1,5 @@
 // File: lib/providers/game_provider.dart
-// Location: Entire File (Significant changes)
+// Location: Entire File (Implementing puzzle code format changes)
 
 import 'dart:async';
 import 'dart:math';
@@ -31,10 +31,10 @@ class GameProvider extends ChangeNotifier {
   final List<List<List<SudokuCellData>>> _history = [];
   final int _maxHistory = kMaxHistory;
 
-  // --- NEW: Hint tracking ---
+  // --- Hint tracking ---
   int _hintsUsed = 0;
 
-  // --- NEW: Puzzle String for sharing ---
+  // --- Puzzle String for sharing ---
   String? _currentPuzzleString;
 
   bool _runIntroNumberAnimation = false;
@@ -52,9 +52,9 @@ class GameProvider extends ChangeNotifier {
   int? get currentPuzzleDifficulty => _currentPuzzleDifficulty;
   int? get initialDifficultySelection => _initialDifficultySelection;
   bool get runIntroNumberAnimation => _runIntroNumberAnimation;
-  // --- NEW: Hint getter ---
+  // --- Hint getter ---
   int get hintsUsed => _hintsUsed;
-  // --- NEW: Puzzle String getter ---
+  // --- Puzzle String getter ---
   String? get currentPuzzleString => _currentPuzzleString;
 
 
@@ -75,6 +75,7 @@ class GameProvider extends ChangeNotifier {
          _currentPuzzleDifficulty = null;
          _initialDifficultySelection = null;
          _currentPuzzleString = null;
+         _hintsUsed = 0; // Reset hints on failure
          notifyListeners();
          return;
       }
@@ -87,17 +88,12 @@ class GameProvider extends ChangeNotifier {
          _currentPuzzleDifficulty = null;
          _initialDifficultySelection = null;
          _currentPuzzleString = null;
+         _hintsUsed = 0; // Reset hints on failure
          notifyListeners();
          return;
       }
       _board = puzzleResult;
-
-      // --- FIX: Set _isPuzzleLoaded BEFORE generating the string ---
       _isPuzzleLoaded = true;
-      // --- END FIX ---
-
-      // Now generate and store the puzzle string
-      _generateAndStorePuzzleString(); // This will now see _isPuzzleLoaded as true
 
       // Reset other game state variables
       _isCompleted = false;
@@ -106,7 +102,11 @@ class GameProvider extends ChangeNotifier {
       _selectedCol = null;
       _isEditingCandidates = false;
       _history.clear();
-      _hintsUsed = 0; // Reset hint counter
+      _hintsUsed = 0; // Reset hint counter for NEW game
+
+      // Now generate and store the puzzle string AFTER resetting hints
+      _generateAndStorePuzzleString();
+
       resetTimer();
       startTimer();
       _runIntroNumberAnimation = false;
@@ -116,50 +116,44 @@ class GameProvider extends ChangeNotifier {
   }
 
   // Helper to generate and store the puzzle string
+  // UPDATED: Format includes hints: DifficultyChar:HintsUsed:BoardString
   void _generateAndStorePuzzleString() {
-    // --- Add Debug Print Start ---
-    if (kDebugMode) print("Debug: Entering _generateAndStorePuzzleString...");
-    // --- End Debug Print ---
-
-    // --- FIX: Remove the redundant check ---
-    // if (!_isPuzzleLoaded || _board.isEmpty) { // <-- REMOVE THIS CHECK
-    //   if (kDebugMode) print("Debug: Exiting _generateAndStorePuzzleString (puzzle not loaded or board empty). Setting string to null.");
-    //   _currentPuzzleString = null;
-    //   return;
-    // }
-    // --- END FIX ---
+    if (!_isPuzzleLoaded || _board.isEmpty) {
+      if (kDebugMode) print("Debug: Exiting _generateAndStorePuzzleString early (puzzle not loaded or board empty). Setting string to null.");
+      _currentPuzzleString = null;
+      return;
+    }
 
     StringBuffer sb = StringBuffer();
-    String difficultyChar = 'M';
+    String difficultyChar = 'M'; // Default to Medium
     if (_currentPuzzleDifficulty != null && difficultyLabels.containsKey(_currentPuzzleDifficulty)) {
         String label = difficultyLabels[_currentPuzzleDifficulty]!;
         if (label.isNotEmpty) {
-          difficultyChar = label[0];
+          difficultyChar = label[0].toUpperCase(); // Ensure uppercase
         }
+    } else if (_currentPuzzleDifficulty == -1) {
+        difficultyChar = 'R'; // Explicitly handle Random
     }
 
-    // --- Add Debug Print Difficulty ---
-    if (kDebugMode) print("Debug: Difficulty Char = $difficultyChar");
-    // --- End Debug Print ---
+    // Append Difficulty:Hints:
+    sb.write('$difficultyChar:$_hintsUsed:');
 
-    sb.write('$difficultyChar:');
     try {
       for (int r = 0; r < kGridSize; r++) {
         for (int c = 0; c < kGridSize; c++) {
-          // We assume _board is valid and loaded here because this function
-          // is only called after those conditions are met in the calling methods.
-          final cell = _board[r][c]; // Direct access assuming valid state
+          final cell = _board[r][c];
+          // Fixed cells (original puzzle) contribute their number (1-9)
           if (cell.isFixed && cell.value != null) {
             sb.write('${cell.value! + 1}');
-          } else {
+          }
+          // Empty cells or user-filled cells contribute '0' to the base puzzle string
+          else {
             sb.write('0');
           }
         }
       }
       _currentPuzzleString = sb.toString();
-      // --- Add Debug Print Final Value ---
-      if (kDebugMode) print('Debug: Generated Puzzle String: $_currentPuzzleString');
-      // --- End Debug Print ---
+      if (kDebugMode) print('Debug: Generated Puzzle String (Diff:Hints:Board): $_currentPuzzleString');
     } catch (e) {
         if (kDebugMode) print("Error during puzzle string generation loop: $e");
         _currentPuzzleString = null; // Set to null on error
@@ -167,21 +161,28 @@ class GameProvider extends ChangeNotifier {
   }
 
   // Method to load a puzzle from a string
+  // UPDATED: Expects format DifficultyChar:HintsUsed:BoardString
   Future<bool> loadPuzzleFromString(String puzzleString) async {
-    if (!puzzleString.contains(':') || puzzleString.length < kGridSize * kGridSize + 2) {
-       if (kDebugMode) print("Error: Invalid puzzle string format or length.");
+    if (kDebugMode) print("Attempting to load puzzle from string: $puzzleString");
+    // Basic format check: must have at least two colons and enough length
+    final parts = puzzleString.split(':');
+    if (parts.length < 3 || parts[0].isEmpty || parts[1].isEmpty || parts[2].isEmpty) {
+       if (kDebugMode) print("Error: Invalid puzzle string format (Expected D:H:B). String: '$puzzleString'");
        return false;
     }
 
-    String diffChar = puzzleString.substring(0, 1).toUpperCase();
-    String boardString = puzzleString.substring(2);
+    String diffChar = parts[0].toUpperCase();
+    String hintsString = parts[1];
+    String boardString = parts[2];
 
+    // Validate Difficulty Character
     int? difficulty;
     difficultyLabels.forEach((key, label) {
-       if (label.isNotEmpty && label[0] == diffChar) {
+       if (label.isNotEmpty && label[0].toUpperCase() == diffChar) {
            difficulty = key;
        }
     });
+    // Explicitly check for 'R' after the map iteration
     if (diffChar == 'R') difficulty = -1;
 
     if (difficulty == null) {
@@ -189,8 +190,16 @@ class GameProvider extends ChangeNotifier {
         return false;
     }
 
+    // Validate Hints Number
+    int? initialHintsUsed = int.tryParse(hintsString);
+    if (initialHintsUsed == null || initialHintsUsed < 0) {
+      if (kDebugMode) print("Error: Invalid hints value '$hintsString'. Must be a non-negative integer.");
+      return false;
+    }
+
+    // Validate Board String Length
     if (boardString.length != kGridSize * kGridSize) {
-        if (kDebugMode) print("Error: Incorrect board string length.");
+        if (kDebugMode) print("Error: Incorrect board string length. Expected ${kGridSize * kGridSize}, got ${boardString.length}.");
         return false;
     }
 
@@ -208,18 +217,19 @@ class GameProvider extends ChangeNotifier {
 
          if (char != '0') {
            value = int.tryParse(char);
-           if (value != null && value >= 1 && value <= 9) {
-             value = value - 1;
+           if (value != null && value >= 1 && value <= kGridSize) { // Use kGridSize
+             value = value - 1; // Adjust to 0-based index
              isFixed = true;
-             boardForSolving[r][c] = value;
+             boardForSolving[r][c] = value; // Populate board for solver
            } else {
-             throw FormatException("Invalid character '$char' at index $i");
+             throw FormatException("Invalid character '$char' (value ${value}) at index $i in board string.");
            }
          }
+         // Create SudokuCellData with parsed value and fixed status
          initialBoard[r][c] = SudokuCellData(value: value, isFixed: isFixed);
       }
     } catch (e) {
-       if (kDebugMode) print("Error parsing board string: $e");
+       if (kDebugMode) print("Error parsing board string part: $e");
        return false;
     }
 
@@ -228,36 +238,40 @@ class GameProvider extends ChangeNotifier {
 
     if (!_solveBoard(boardToSolveClone)) {
        if (kDebugMode) print("Error: Could not find a unique solution for the shared puzzle string.");
-       return false;
+       // It's possible the shared string represents an invalid/unsolvable puzzle.
+       // We still load it, but the user might get stuck or hints won't work correctly.
+       // For now, we proceed but clear the internal solution board.
+       _solutionBoard = List.generate(kGridSize, (_) => List.generate(kGridSize, (_) => null));
+    } else {
+        // Store the found solution
+       _solutionBoard = List.generate(kGridSize, (r) => List<int?>.from(boardToSolveClone[r]), growable: false);
+       if (kDebugMode) print("Successfully solved the base puzzle for solution storage.");
     }
-
-    // --- CORRECTED LINE ---
-    // Create _solutionBoard by correctly copying each row from the solved board.
-    _solutionBoard = List.generate(kGridSize, (r) => List<int?>.from(boardToSolveClone[r]), growable: false);
-    // --- END CORRECTED LINE ---
-
 
     // 3. Set up game state
     _board = initialBoard;
     _currentPuzzleDifficulty = difficulty;
-    _initialDifficultySelection = difficulty;
+    _initialDifficultySelection = difficulty; // Store the difficulty from the string
     _isPuzzleLoaded = true;
-    _isCompleted = false;
+    _isCompleted = false; // Loaded game is not completed initially
     _isPaused = false;
     _selectedRow = null;
     _selectedCol = null;
     _isEditingCandidates = false;
-    _history.clear();
-    _hintsUsed = 0;
-    _currentPuzzleString = puzzleString;
+    _history.clear(); // Clear history for a newly loaded game
+    _hintsUsed = initialHintsUsed; // Set hints used from the loaded string
+    _currentPuzzleString = puzzleString; // Store the original loaded string
+
+    // Reset and start the timer for the loaded game
     resetTimer();
     startTimer();
-    _runIntroNumberAnimation = false;
+    _runIntroNumberAnimation = false; // Don't run intro animation for loaded games
 
     notifyListeners();
-    if (kDebugMode) print("Successfully loaded puzzle from string.");
+    if (kDebugMode) print("Successfully loaded puzzle from string. Difficulty: ${difficultyLabels[difficulty]}, Hints Used (from string): $initialHintsUsed");
     return true;
   }
+
 
   // --- NEW: Dedicated solver function (reuses logic from _generateSolvedBoard) ---
   // Takes a partially filled board (null for empty) and fills it if a unique solution exists.
@@ -279,8 +293,8 @@ class GameProvider extends ChangeNotifier {
     if (!foundEmpty) return true;
 
     // Try numbers 0-8 (can shuffle for potential efficiency, but order doesn't affect correctness)
-    // List<int> nums = List.generate(kGridSize, (i) => i)..shuffle(_random);
-    for (int n = 0; n < kGridSize; n++) { // Using 0..8 directly is fine
+    List<int> nums = List.generate(kGridSize, (i) => i)..shuffle(_random); // Shuffle for generation
+    for (int n in nums) { // Using 0..8 directly is fine
       if (_isValidPlacementInternal(board, row!, col!, n)) {
         board[row][col] = n; // Try placing number
 
@@ -537,20 +551,26 @@ class GameProvider extends ChangeNotifier {
    }
 
 
-   // --- provideHint (UPDATED to track hints) ---
+   // --- provideHint (UPDATED to track hints and regenerate puzzle string) ---
     bool provideHint({required bool showErrors}) {
       if (_selectedRow != null && _selectedCol != null && !_isCompleted) {
         final cell = _board[_selectedRow!][_selectedCol!];
         // Can only provide hint for non-fixed, empty cells
         if (!cell.isFixed && cell.value == null) {
           // Get the correct value from the stored solution
+          if (_solutionBoard.isEmpty || _selectedRow! >= _solutionBoard.length || _selectedCol! >= _solutionBoard[_selectedRow!].length) {
+             if (kDebugMode) print("Error: Solution board not available or invalid dimensions for hint at [$_selectedRow, $_selectedCol]");
+             return false; // Cannot provide hint if solution isn't valid
+          }
           int? solutionValue = _solutionBoard[_selectedRow!][_selectedCol!];
+
           if (solutionValue != null) {
             _saveStateToHistory(); // Save state before applying hint
             cell.value = solutionValue;
             cell.candidates.clear(); // Clear candidates as value is now known
             cell.isHint = true; // Mark the cell as hinted
             _hintsUsed++; // <<< INCREMENT HINT COUNTER
+            _generateAndStorePuzzleString(); // <<< REGENERATE STRING WITH NEW HINT COUNT
             updateBoardErrors(showErrors); // Update errors after placing hint
 
             // Check if the hint completed the puzzle
@@ -596,6 +616,7 @@ class GameProvider extends ChangeNotifier {
               if (cell.value != null) {
                  // Clear main value if switching to candidates on a filled cell
                  cell.value = null;
+                 cell.isHint = false; // Clearing value removes hint status
               }
               // Toggle candidate
               if (cell.candidates.contains(colorIndex)) {
@@ -611,8 +632,10 @@ class GameProvider extends ChangeNotifier {
               // Toggle value: if same value is tapped, clear cell; otherwise, set value
               if (cell.value == colorIndex) {
                  cell.value = null;
+                 cell.isHint = false; // Clearing value removes hint status
               } else {
                  cell.value = colorIndex;
+                 cell.isHint = false; // User action overwrites hint status
               }
            }
 
@@ -646,6 +669,7 @@ class GameProvider extends ChangeNotifier {
              _saveStateToHistory();
              cell.value = null;
              cell.candidates.clear();
+             cell.isHint = false; // Erasing removes hint status
              updateBoardErrors(showErrors); // Update errors after erasing
              notifyListeners();
            }
@@ -668,7 +692,28 @@ class GameProvider extends ChangeNotifier {
 
   void performUndo({required bool showErrors}) {
       if(_history.isNotEmpty){
-        _board = _history.removeLast(); // Restore previous state
+        // --- Store hints *before* restoring board state ---
+        final int previousHintsUsed = _hintsUsed;
+
+        _board = _history.removeLast(); // Restore previous board state
+
+        // --- Recalculate hints used from the restored board state ---
+        int recalculatedHints = 0;
+        for(int r=0; r<kGridSize; r++){
+          for(int c=0; c<kGridSize; c++){
+            if(_board[r][c].isHint) {
+               recalculatedHints++;
+            }
+          }
+        }
+        _hintsUsed = recalculatedHints;
+
+        // --- Regenerate puzzle string if hints changed ---
+        if (_hintsUsed != previousHintsUsed) {
+            _generateAndStorePuzzleString();
+            if (kDebugMode) print("Undo changed hint count from $previousHintsUsed to $_hintsUsed. Regenerated puzzle string.");
+        }
+
         updateBoardErrors(showErrors); // Update errors for the restored state
         _isCompleted = _isBoardCompleteAndCorrect(); // Re-check completion status
 
@@ -684,6 +729,7 @@ class GameProvider extends ChangeNotifier {
         // Optional: Show a snackbar to the user?
       }
   }
+
 
   // --- Timer Control ---
    void startTimer() {
@@ -744,7 +790,7 @@ class GameProvider extends ChangeNotifier {
      for (int r = 0; r < kGridSize; r++) {
         for (int c = 0; c < kGridSize; c++) {
            // Count occurrences in the definitive solution
-           if (_solutionBoard[r][c] == colorIndex) {
+           if (r < _solutionBoard.length && c < _solutionBoard[r].length && _solutionBoard[r][c] == colorIndex) {
               solutionCount++;
            }
            // Count occurrences in the current board that are correctly placed
@@ -755,8 +801,10 @@ class GameProvider extends ChangeNotifier {
      }
      // The color is complete if it appears kGridSize times (expected for Sudoku)
      // in the solution AND the user has placed all of them correctly on the board.
-     return solutionCount == kGridSize && boardCorrectCount == kGridSize;
+     // Use solutionCount > 0 check for safety if solution board failed loading
+     return (solutionCount > 0 && solutionCount == boardCorrectCount) || (solutionCount == kGridSize && boardCorrectCount == kGridSize) ;
   }
+
 
   bool isColorUsedInSelectionContext(int colorIndex, int row, int col) {
       if (!_isPuzzleLoaded || _board.isEmpty) return false;

@@ -190,8 +190,11 @@ class _HomeScreenState extends State<HomeScreen> {
                        ) ?? const TextStyle()); // Provide a default TextStyle
 
 
+    // --- Placeholder App Version ---
+    const String appVersion = "v1.0.1"; // Replace with dynamic version later
+
     return Scaffold(
-      body: Stack(
+      body: Stack( // Use Stack to layer main content and version text
         children: [
           // Background Gradient
           Container(
@@ -201,12 +204,14 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
            // Bokeh Painter (if initialized)
            if (_particlesInitialized)
-             CustomPaint(
-                painter: BokehPainter(particles: _particles),
-                size: MediaQuery.of(context).size,
+             Positioned.fill( // Ensure painter covers the whole stack
+               child: CustomPaint(
+                  painter: BokehPainter(particles: _particles),
+                  size: MediaQuery.of(context).size,
+               ),
              ),
 
-          // Centered Content
+          // Centered Content (Main Area)
           Center(
             child: SingleChildScrollView( // Allows scrolling on smaller screens
               padding: const EdgeInsets.symmetric(vertical: kMassiveSpacing, horizontal: kDefaultPadding), // Use constants
@@ -309,14 +314,11 @@ class _HomeScreenState extends State<HomeScreen> {
                        Navigator.push( context, MaterialPageRoute(builder: (context) => const SettingsScreen()), );
                     },
                   ),
-
-                   // --- NEW: Import Puzzle Button ---
                   const SizedBox(height: kExtraLargeSpacing), // Use constant
                   ElevatedButton.icon(
                      icon: const Icon(Icons.content_paste_go_outlined), // Import Icon
                      label: Text('Import Puzzle', style: GoogleFonts.nunito(fontSize: kDefaultFontSizeConst)), // Use constant
                      style: ElevatedButton.styleFrom(
-                       // Consistent styling with other buttons
                        backgroundColor: currentTheme.colorScheme.tertiaryContainer, // Use tertiary color
                        foregroundColor: currentTheme.colorScheme.onTertiaryContainer,
                        padding: const EdgeInsets.symmetric(horizontal: 35, vertical: kDefaultFontSizeConst), // Use constant for vertical
@@ -328,7 +330,26 @@ class _HomeScreenState extends State<HomeScreen> {
                        _showImportDialog(context); // Call the dialog method
                     },
                   ),
+                  // Add some extra space at the bottom of the scrollable content
+                  // to ensure it doesn't overlap with the version text if the screen is very short
+                  const SizedBox(height: kExtraLargeSpacing),
                 ],
+              ),
+            ),
+          ),
+
+          // --- Version Number positioned at the bottom ---
+          Positioned(
+            bottom: kMediumPadding, // Use constant for padding from bottom
+            left: 0,
+            right: 0,
+            child: Text(
+              appVersion,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.nunito(
+                textStyle: currentTheme.textTheme.bodySmall?.copyWith(
+                  color: currentTheme.colorScheme.onSurface.withOpacity(kMediumHighOpacity) // Use constant for opacity
+                )
               ),
             ),
           ),
