@@ -1,6 +1,8 @@
 // File: lib/constants.dart
 // Location: ./lib/constants.dart
 
+// --- Website ---
+const baseDomain = "http://www.alpentor.com/rainboku";
 
 // --- Grid & Game Logic ---
 const int kGridSize = 9; // Standard Sudoku grid dimension (9x9)

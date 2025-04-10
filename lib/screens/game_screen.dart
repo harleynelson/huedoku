@@ -281,42 +281,7 @@ class _GameScreenState extends State<GameScreen> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        ElevatedButton.icon( /* ... Brag Button ... */
-                          icon: Icon(kIsWeb ? Icons.copy_outlined : Icons.share_outlined),
-                          label: Text(kIsWeb ? 'Brag about it' : 'Brag about it', style: GoogleFonts.nunito()),
-                          style: ElevatedButton.styleFrom( /* ... Style ... */
-                           padding: const EdgeInsets.symmetric(vertical: kMediumPadding),
-                           backgroundColor: dialogTheme.colorScheme.secondaryContainer,
-                           foregroundColor: dialogTheme.colorScheme.onSecondaryContainer,
-                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kMediumRadius)),
-                          ),
-                          onPressed: () { /* ... Brag logic ... */
-                              final String timeStr = _formatDuration(finalTime);
-                              String shareText = "I solved a $difficultyLabel Rainboku puzzle in $timeStr with $hints hint${hints == 1 ? '' : 's'}! ($completionTitle) 🌈"; // Include pun
-                              if (puzzleCode != null) {
-                                 const String baseDomain = "https://your-app-domain.com"; // Replace
-                                 final String encodedCode = Uri.encodeQueryComponent(puzzleCode);
-                                 final String fullUrl = "$baseDomain/#/play?code=$encodedCode";
-                                 shareText += "\n\nThink you can beat me? Try the same puzzle! #Rainboku\n$fullUrl";
-                              } else { shareText += " #Rainboku"; }
-                              if (kIsWeb) { Clipboard.setData(ClipboardData(text: shareText)); if (dialogContext.mounted) { ScaffoldMessenger.of(dialogContext).showSnackBar( SnackBar( content: const Text('Brag text with link copied to clipboard!'), duration: kSnackbarDuration, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kSmallRadius)), ), ); }
-                              } else { Share.share(shareText); }
-                          },
-                        ),
-                        const SizedBox(height: kSmallSpacing),
-                        if (puzzleCode != null) ElevatedButton.icon( /* ... Copy Code Only Button ... */
-                              icon: const Icon(Icons.copy_all_outlined),
-                              label: Text('Copy Puzzle Code', style: GoogleFonts.nunito()),
-                              style: ElevatedButton.styleFrom( /* ... Style ... */
-                                padding: const EdgeInsets.symmetric(vertical: kMediumPadding),
-                                backgroundColor: dialogTheme.colorScheme.tertiaryContainer,
-                                foregroundColor: dialogTheme.colorScheme.onTertiaryContainer,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kMediumRadius)),
-                              ),
-                              onPressed: () { /* ... Clipboard logic ... */
-                                 Clipboard.setData(ClipboardData(text: puzzleCode)); if (dialogContext.mounted) { ScaffoldMessenger.of(dialogContext).showSnackBar( SnackBar( content: const Text('Puzzle code copied to clipboard!'), duration: kSnackbarDuration, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kSmallRadius)), ), ); }
-                              },
-                            ),
+                        
                         if (puzzleCode != null) const SizedBox(height: kLargeSpacing),
                         ElevatedButton.icon( /* ... New Game Button ... */
                           icon: const Icon(Icons.refresh),
@@ -339,6 +304,51 @@ class _GameScreenState extends State<GameScreen> {
                                _startIntroAnimationSequenceIfNeeded();
                            },
                         ),
+                        const SizedBox(height: kLargeSpacing),
+                      const SizedBox(height: kSmallSpacing),
+                        TextButton( /* ... Close Button ... */
+                          child: Text('Challenge your friends', style: GoogleFonts.nunito(textStyle: dialogTextTheme.labelLarge?.copyWith(color: dialogTheme.colorScheme.onSurface.withOpacity(0.7)))),
+                          onPressed: () { },
+                        ),
+                        ElevatedButton.icon( /* ... Brag Button ... */
+                          icon: Icon(kIsWeb ? Icons.copy_outlined : Icons.share_outlined),
+                          label: Text(kIsWeb ? 'Copy Web Link' : 'Send Web Link', style: GoogleFonts.nunito()),
+                          style: ElevatedButton.styleFrom( /* ... Style ... */
+                           padding: const EdgeInsets.symmetric(vertical: kMediumPadding),
+                           backgroundColor: dialogTheme.colorScheme.secondaryContainer,
+                           foregroundColor: dialogTheme.colorScheme.onSecondaryContainer,
+                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kMediumRadius)),
+                          ),
+                          onPressed: () { /* ... Brag logic ... */
+                              final String timeStr = _formatDuration(finalTime);
+                              //String shareText = "I solved a $difficultyLabel Rainboku puzzle in $timeStr with $hints hint${hints == 1 ? '' : 's'}! ($completionTitle) 🌈"; // Include pun
+                              String shareText = "";
+
+                              if (puzzleCode != null) {
+                                 final String encodedCode = Uri.encodeQueryComponent(puzzleCode);
+                                 final String fullUrl = "$baseDomain/#/play?code=$encodedCode";
+                                 shareText += "$fullUrl";
+                              } else { shareText += ""; }
+                              if (kIsWeb) { Clipboard.setData(ClipboardData(text: shareText)); if (dialogContext.mounted) { ScaffoldMessenger.of(dialogContext).showSnackBar( SnackBar( content: const Text('Web link copied to clipboard!'), duration: kSnackbarDuration, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kSmallRadius)), ), ); }
+                              //if (kIsWeb) { Clipboard.setData(ClipboardData(text: shareText)); if (dialogContext.mounted) { ScaffoldMessenger.of(dialogContext).showSnackBar( SnackBar( content: const Text('Brag text with link copied to clipboard!'), duration: kSnackbarDuration, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kSmallRadius)), ), ); }
+                              } else { Share.share(shareText); }
+                          },
+                        ),
+                        const SizedBox(height: kSmallSpacing),
+                        if (puzzleCode != null) ElevatedButton.icon( /* ... Copy Code Only Button ... */
+                              icon: const Icon(Icons.copy_all_outlined),
+                              label: Text('Copy Puzzle Code', style: GoogleFonts.nunito()),
+                              style: ElevatedButton.styleFrom( /* ... Style ... */
+                                padding: const EdgeInsets.symmetric(vertical: kMediumPadding),
+                                backgroundColor: dialogTheme.colorScheme.tertiaryContainer,
+                                foregroundColor: dialogTheme.colorScheme.onTertiaryContainer,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kMediumRadius)),
+                              ),
+                              onPressed: () { /* ... Clipboard logic ... */
+                                 Clipboard.setData(ClipboardData(text: puzzleCode)); if (dialogContext.mounted) { ScaffoldMessenger.of(dialogContext).showSnackBar( SnackBar( content: const Text('Puzzle code copied to clipboard!'), duration: kSnackbarDuration, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kSmallRadius)), ), ); }
+                              },
+                            ),
+                        
                         const SizedBox(height: kSmallSpacing),
                         TextButton( /* ... Close Button ... */
                           child: Text('Close', style: GoogleFonts.nunito(textStyle: dialogTextTheme.labelLarge?.copyWith(color: dialogTheme.colorScheme.onSurface.withOpacity(0.7)))),
