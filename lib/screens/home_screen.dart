@@ -110,7 +110,7 @@ class _HomeScreenState extends State<HomeScreen> {
                  controller: controller,
                  autofocus: true,
                  decoration: InputDecoration(
-                    hintText: 'Paste code here (e.g., M:0105...)',
+                    hintText: 'Paste code here (e.g., Mx12x168...)',
                     // Apply theme defaults for consistency
                     filled: true,
                     fillColor: currentTheme.inputDecorationTheme.fillColor,
@@ -191,7 +191,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
 
     // --- Placeholder App Version ---
-    const String appVersion = "v1.0.2"; // Replace with dynamic version later
+    const String appVersion = "v1.0.4"; // Replace with dynamic version later
 
     return Scaffold(
       body: Stack( // Use Stack to layer main content and version text

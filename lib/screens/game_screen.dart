@@ -1,4 +1,5 @@
 // File: lib/screens/game_screen.dart
+// Location: Entire File (Includes previous fixes for layout and ensures correct hint display in dialog)
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -21,13 +22,9 @@ import 'package:huedoku/themes.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/foundation.dart';
 import 'package:huedoku/constants.dart';
-// --- Import for Clipboard ---
 import 'package:flutter/services.dart';
-// --- Import for Sharing ---
 import 'package:share_plus/share_plus.dart';
 import 'package:huedoku/color_puns.dart';
-// This imports a stub implementation on non-web platforms,
-// and the actual 'package:web' implementation on the web.
 import '../stub/web_interop_stub.dart'
     if (dart.library.html) 'package:web/web.dart'
     as web_interop;
@@ -40,7 +37,7 @@ class GameScreen extends StatefulWidget {
 }
 
 class _GameScreenState extends State<GameScreen> {
-  bool _completionDialogShown = false; // Tracks if dialog is shown *for the current completion*
+  bool _completionDialogShown = false;
   List<BokehParticle> _particles = [];
   bool _particlesInitialized = false;
   Size? _lastScreenSize;
@@ -61,16 +58,9 @@ class _GameScreenState extends State<GameScreen> {
   @override void didChangeDependencies() {
      super.didChangeDependencies();
      _updateBokehIfNeeded();
-
-     // --- Reset dialog shown flag if puzzle is no longer completed ---
-     // This handles cases where the user might undo back from a completed state
      final gameProvider = Provider.of<GameProvider>(context, listen: false);
      if (!gameProvider.isCompleted && _completionDialogShown) {
-        if (mounted) {
-           setState(() {
-              _completionDialogShown = false;
-           });
-        }
+        if (mounted) { setState(() { _completionDialogShown = false; }); }
      }
   }
 
@@ -80,7 +70,6 @@ class _GameScreenState extends State<GameScreen> {
     super.dispose();
   }
 
-  // --- startIntroAnimationSequenceIfNeeded, _regenerateBokehParticles, _updateBokehIfNeeded, _formatDuration, _showSettingsSheet remain the same ---
   void _startIntroAnimationSequenceIfNeeded() {
     if (!mounted) return;
     _introAnimationTimer?.cancel();
@@ -160,7 +149,8 @@ class _GameScreenState extends State<GameScreen> {
       _lastPaletteUsed = currentPalette;
   }
 
-  String _formatDuration(Duration duration) {
+  // Updated to be static or moved outside if no instance state needed
+  static String _formatDuration(Duration duration) {
     String twoDigits(int n) => n.toString().padLeft(2, '0');
     String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
     String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
@@ -172,7 +162,7 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _showSettingsSheet(BuildContext context) {
-      showModalBottomSheet( /* ... same as before ... */
+      showModalBottomSheet(
           context: context,
           isScrollControlled: true,
           backgroundColor: Colors.transparent,
@@ -192,8 +182,8 @@ class _GameScreenState extends State<GameScreen> {
                               borderRadius: const BorderRadius.vertical(top: Radius.circular(kLargeRadius)),
                               border: Border(top: BorderSide(color: glassBorder, width: 0.5)),
                           ),
-                          child: Padding(
-                             padding: const EdgeInsets.only(top: kDefaultPadding),
+                          child: const Padding(
+                             padding: EdgeInsets.only(top: kDefaultPadding),
                              child: SettingsContent(),
                           )
                       ),
@@ -203,191 +193,197 @@ class _GameScreenState extends State<GameScreen> {
        );
   }
 
-  // --- UPDATED Completion Dialog ---
+  // Completion Dialog uses gameProvider.hintsUsed correctly
   void _showCompletionDialog(BuildContext context, Duration finalTime) {
-  if (!mounted) return;
+    if (!mounted) return;
 
-  setState(() { _completionDialogShown = true; });
-  _confettiController.play();
+    setState(() { _completionDialogShown = true; });
+    _confettiController.play();
 
-  final gameProvider = Provider.of<GameProvider>(context, listen: false);
-  // No need for settingsProvider here unless used later
-  // final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
-  final ThemeData dialogTheme = Theme.of(context);
-  final TextTheme dialogTextTheme = dialogTheme.textTheme;
-  final bool isDark = dialogTheme.brightness == Brightness.dark;
-  final String difficultyLabel = difficultyLabels[gameProvider.currentPuzzleDifficulty ?? 1] ?? 'Medium';
-  final int hints = gameProvider.hintsUsed;
-  final String? puzzleCode = gameProvider.currentPuzzleString;
+    final gameProvider = Provider.of<GameProvider>(context, listen: false);
+    final ThemeData dialogTheme = Theme.of(context);
+    final TextTheme dialogTextTheme = dialogTheme.textTheme;
+    final bool isDark = dialogTheme.brightness == Brightness.dark;
+    final String difficultyLabel = difficultyLabels[gameProvider.currentPuzzleDifficulty ?? 1] ?? 'Medium';
+    final int hints = gameProvider.hintsUsed; // Hints used in this round
+    final String completionTitle = getRandomColorPun();
 
-  // --- Get a random pun ---
-  final String completionTitle = getRandomColorPun();
-
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (BuildContext dialogContext) {
-      return Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kLargeRadius)),
-        elevation: kHighElevation,
-        backgroundColor: Colors.transparent,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(kLargeRadius),
-          child: BackdropFilter(
-            filter: ui.ImageFilter.blur(sigmaX: 8.0, sigmaY: 8.0),
-            child: Container(
-              padding: const EdgeInsets.all(kExtraLargePadding),
-              decoration: BoxDecoration(
-                color: dialogTheme.colorScheme.surface.withOpacity(isDark ? kHighOpacity : kVeryHighOpacity),
-                borderRadius: BorderRadius.circular(kLargeRadius),
-              ),
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kLargeRadius)),
+          elevation: kHighElevation,
+          backgroundColor: Colors.transparent,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(kLargeRadius),
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 8.0, sigmaY: 8.0),
               child: Container(
-                constraints: const BoxConstraints(maxWidth: kHomeMaxWidth),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    // --- Title and Info ---
-                    Icon( Icons.emoji_events_outlined, color: dialogTheme.colorScheme.primary, size: 40.0, ),
-                    const SizedBox(height: kSmallSpacing),
-                    // --- Use the random pun here ---
-                    Text(
-                      completionTitle, // Use the randomly selected pun
-                      style: GoogleFonts.nunito(
-                        textStyle: dialogTextTheme.headlineSmall,
-                        fontWeight: FontWeight.bold
-                      ),
-                      textAlign: TextAlign.center, // Center align title
-                    ),
-                    // --- End Title Change ---
-                    const SizedBox(height: kMediumSpacing),
-                    Text( 'Difficulty: $difficultyLabel', style: GoogleFonts.nunito( textStyle: dialogTextTheme.bodyMedium), textAlign: TextAlign.center, ),
-                    const SizedBox(height: kSmallSpacing),
-                    Text( 'Hints Used: $hints', style: GoogleFonts.nunito( textStyle: dialogTextTheme.bodyMedium), textAlign: TextAlign.center, ),
-                    const SizedBox(height: kSmallSpacing),
-                    Text( 'Your Time:', style: GoogleFonts.nunito( textStyle: dialogTextTheme.bodyMedium), textAlign: TextAlign.center, ),
-                    const SizedBox(height: kSmallSpacing),
-                    Text( _formatDuration(finalTime),
-                      style: GoogleFonts.nunito(
-                        fontSize: dialogTextTheme.headlineMedium!.fontSize,
-                        fontWeight: FontWeight.bold,
-                        color: dialogTheme.colorScheme.primary,
-                        fontFeatures: const [ui.FontFeature.tabularFigures()],
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: kExtraLargeSpacing),
-
-                    // --- Action Buttons (Remain the same) ---
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        
-                        if (puzzleCode != null) const SizedBox(height: kLargeSpacing),
-                        ElevatedButton.icon( /* ... New Game Button ... */
-                          icon: const Icon(Icons.refresh),
-                          label: Text('New Game', style: GoogleFonts.nunito()),
-                          style: ElevatedButton.styleFrom( /* ... Style ... */
-                            padding: const EdgeInsets.symmetric(vertical: kLargePadding),
-                            backgroundColor: dialogTheme.colorScheme.primaryContainer,
-                            foregroundColor: dialogTheme.colorScheme.onPrimaryContainer,
-                            textStyle: GoogleFonts.nunito(textStyle: dialogTextTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold)),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kMediumRadius)),
-                          ),
-                          onPressed: () { /* ... New Game Logic ... */
-                               final int initialDifficulty = gameProvider.initialDifficultySelection ?? 1;
-                               final settings = Provider.of<SettingsProvider>(context, listen: false); // Need settings here
-                               if (initialDifficulty == -1) { settings.selectRandomPalette(); }
-                               Navigator.of(dialogContext).pop();
-                               if (mounted) { setState(() { _completionDialogShown = false; }); }
-                               gameProvider.loadNewPuzzle(difficulty: initialDifficulty);
-                               _regenerateBokehParticles();
-                               _startIntroAnimationSequenceIfNeeded();
-                           },
-                        ),
-                        const SizedBox(height: kLargeSpacing),
+                padding: const EdgeInsets.all(kExtraLargePadding),
+                decoration: BoxDecoration(
+                  color: dialogTheme.colorScheme.surface.withOpacity(isDark ? kHighOpacity : kVeryHighOpacity),
+                  borderRadius: BorderRadius.circular(kLargeRadius),
+                ),
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: kHomeMaxWidth),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Icon( Icons.emoji_events_outlined, color: dialogTheme.colorScheme.primary, size: 40.0, ),
                       const SizedBox(height: kSmallSpacing),
-                        TextButton( /* ... Close Button ... */
-                          child: Text('Challenge your friends', style: GoogleFonts.nunito(textStyle: dialogTextTheme.labelLarge?.copyWith(color: dialogTheme.colorScheme.onSurface.withOpacity(0.7)))),
-                          onPressed: () { },
+                      Text( completionTitle, style: GoogleFonts.nunito( textStyle: dialogTextTheme.headlineSmall, fontWeight: FontWeight.bold ), textAlign: TextAlign.center, ),
+                      const SizedBox(height: kMediumSpacing),
+                      Text( 'Difficulty: $difficultyLabel', style: GoogleFonts.nunito( textStyle: dialogTextTheme.bodyMedium), textAlign: TextAlign.center, ),
+                      const SizedBox(height: kSmallSpacing),
+                      Text( 'Hints Used: $hints', style: GoogleFonts.nunito( textStyle: dialogTextTheme.bodyMedium), textAlign: TextAlign.center, ),
+                      const SizedBox(height: kSmallSpacing),
+                      Text( 'Your Time:', style: GoogleFonts.nunito( textStyle: dialogTextTheme.bodyMedium), textAlign: TextAlign.center, ),
+                      const SizedBox(height: kSmallSpacing),
+                      Text( _formatDuration(finalTime),
+                        style: GoogleFonts.nunito(
+                          fontSize: dialogTextTheme.headlineMedium!.fontSize,
+                          fontWeight: FontWeight.bold,
+                          color: dialogTheme.colorScheme.primary,
+                          fontFeatures: const [ui.FontFeature.tabularFigures()],
                         ),
-                        ElevatedButton.icon( /* ... Brag Button ... */
-                          icon: Icon(kIsWeb ? Icons.copy_outlined : Icons.share_outlined),
-                          label: Text(kIsWeb ? 'Copy Web Link' : 'Send Web Link', style: GoogleFonts.nunito()),
-                          style: ElevatedButton.styleFrom( /* ... Style ... */
-                           padding: const EdgeInsets.symmetric(vertical: kMediumPadding),
-                           backgroundColor: dialogTheme.colorScheme.secondaryContainer,
-                           foregroundColor: dialogTheme.colorScheme.onSecondaryContainer,
-                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kMediumRadius)),
-                          ),
-                          onPressed: () { /* ... Brag logic ... */
-                              final String timeStr = _formatDuration(finalTime);
-                              //String shareText = "I solved a $difficultyLabel Rainboku puzzle in $timeStr with $hints hint${hints == 1 ? '' : 's'}! ($completionTitle) 🌈"; // Include pun
-                              String shareText = "";
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: kExtraLargeSpacing),
 
-                              if (puzzleCode != null) {
-                                 final String encodedCode = Uri.encodeQueryComponent(puzzleCode);
-                                 final String fullUrl = "$baseDomain/#/play?code=$encodedCode";
-                                 shareText += "$fullUrl";
-                              } else { shareText += ""; }
-                              if (kIsWeb) { Clipboard.setData(ClipboardData(text: shareText)); if (dialogContext.mounted) { ScaffoldMessenger.of(dialogContext).showSnackBar( SnackBar( content: const Text('Web link copied to clipboard!'), duration: kSnackbarDuration, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kSmallRadius)), ), ); }
-                              //if (kIsWeb) { Clipboard.setData(ClipboardData(text: shareText)); if (dialogContext.mounted) { ScaffoldMessenger.of(dialogContext).showSnackBar( SnackBar( content: const Text('Brag text with link copied to clipboard!'), duration: kSnackbarDuration, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kSmallRadius)), ), ); }
-                              } else { Share.share(shareText); }
-                          },
-                        ),
-                        const SizedBox(height: kSmallSpacing),
-                        if (puzzleCode != null) ElevatedButton.icon( /* ... Copy Code Only Button ... */
-                              icon: const Icon(Icons.copy_all_outlined),
-                              label: Text('Copy Puzzle Code', style: GoogleFonts.nunito()),
-                              style: ElevatedButton.styleFrom( /* ... Style ... */
-                                padding: const EdgeInsets.symmetric(vertical: kMediumPadding),
-                                backgroundColor: dialogTheme.colorScheme.tertiaryContainer,
-                                foregroundColor: dialogTheme.colorScheme.onTertiaryContainer,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kMediumRadius)),
+                      // Action Buttons
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          ElevatedButton.icon( /* ... New Game Button ... */
+                            icon: const Icon(Icons.refresh), label: Text('New Game', style: GoogleFonts.nunito()), style: ElevatedButton.styleFrom( padding: const EdgeInsets.symmetric(vertical: kLargePadding), backgroundColor: dialogTheme.colorScheme.primaryContainer, foregroundColor: dialogTheme.colorScheme.onPrimaryContainer, textStyle: GoogleFonts.nunito(textStyle: dialogTextTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kMediumRadius)), ),
+                            onPressed: () { final int initialDifficulty = gameProvider.initialDifficultySelection ?? 1; final settings = Provider.of<SettingsProvider>(context, listen: false); if (initialDifficulty == -1) { settings.selectRandomPalette(); } Navigator.of(dialogContext).pop(); if (mounted) { setState(() { _completionDialogShown = false; }); } gameProvider.loadNewPuzzle(difficulty: initialDifficulty); _regenerateBokehParticles(); _startIntroAnimationSequenceIfNeeded(); },
+                          ),
+                          const SizedBox(height: kLargeSpacing),
+                          TextButton( child: Text('Challenge your friends', style: GoogleFonts.nunito(textStyle: dialogTextTheme.labelLarge?.copyWith(color: dialogTheme.colorScheme.onSurface.withOpacity(0.7)))), onPressed: () { }, ), // Placeholder
+
+                          // --- UPDATED Share/Copy Web Link Button (Uses 'x') ---
+                          ElevatedButton.icon(
+                            icon: Icon(kIsWeb ? Icons.copy_outlined : Icons.share_outlined),
+                            label: Text(kIsWeb ? 'Copy Web Link' : 'Send Web Link', style: GoogleFonts.nunito()),
+                            style: ElevatedButton.styleFrom( padding: const EdgeInsets.symmetric(vertical: kMediumPadding), backgroundColor: dialogTheme.colorScheme.secondaryContainer, foregroundColor: dialogTheme.colorScheme.onSecondaryContainer, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kMediumRadius)), ),
+                            onPressed: () {
+                                String? generatedCode;
+                                final difficultyChar = gameProvider.currentPuzzleDifficulty != null && difficultyLabels.containsKey(gameProvider.currentPuzzleDifficulty)
+                                                      ? (difficultyLabels[gameProvider.currentPuzzleDifficulty]![0].toUpperCase())
+                                                      : (gameProvider.currentPuzzleDifficulty == -1 ? 'R' : 'M');
+                                final timeInSeconds = finalTime.inSeconds;
+                                final currentHintsUsed = hints;
+
+                                StringBuffer boardSb = StringBuffer();
+                                bool boardReconstructionOk = true;
+                                try {
+                                    if (gameProvider.board.isEmpty || gameProvider.board.length != kGridSize) throw Exception("Board not ready");
+                                    for (int r = 0; r < kGridSize; r++) {
+                                        if (gameProvider.board[r].length != kGridSize) throw Exception("Board row $r not ready");
+                                        for (int c = 0; c < kGridSize; c++) {
+                                            final cell = gameProvider.board[r][c];
+                                            if (cell.isFixed && cell.value != null) { boardSb.write('${cell.value! + 1}'); }
+                                            else { boardSb.write('0'); }
+                                        }
+                                    }
+                                } catch(e) { boardReconstructionOk = false; if (kDebugMode) print("Error reconstructing board for sharing: $e"); }
+
+                                if (boardReconstructionOk) {
+                                   // Use 'x' as separator
+                                   generatedCode = '$difficultyChar${'x'}$currentHintsUsed${'x'}$timeInSeconds${'x'}${boardSb.toString()}';
+                                }
+
+                                if (generatedCode != null) {
+                                   // No need to encode 'x' for URL query parameter
+                                   final String codeForUrl = generatedCode;
+                                   final String fullUrl = "$baseDomain/#/play?code=$codeForUrl";
+                                   if (kIsWeb) { Clipboard.setData(ClipboardData(text: fullUrl)); if (dialogContext.mounted) { ScaffoldMessenger.of(dialogContext).showSnackBar( SnackBar( content: const Text('Web link copied to clipboard!'), duration: kSnackbarDuration, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kSmallRadius)), ), ); } }
+                                   else { Share.share(fullUrl); }
+                                } else { if (dialogContext.mounted) { ScaffoldMessenger.of(dialogContext).showSnackBar( SnackBar( content: const Text('Error generating share link.'), duration: kSnackbarDuration, backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kSmallRadius)), ), ); } }
+                            },
+                          ),
+                          // --- END UPDATED Share/Copy Web Link Button ---
+
+                          const SizedBox(height: kSmallSpacing),
+
+                          // --- UPDATED Copy Puzzle Code Button (Uses 'x') ---
+                          // Check if the *initial* board reconstruction works to enable button
+                          if (true) // Simplified check, assumes board is always available here
+                             ElevatedButton.icon(
+                                icon: const Icon(Icons.copy_all_outlined),
+                                label: Text('Copy Puzzle Code', style: GoogleFonts.nunito()),
+                                style: ElevatedButton.styleFrom( padding: const EdgeInsets.symmetric(vertical: kMediumPadding), backgroundColor: dialogTheme.colorScheme.tertiaryContainer, foregroundColor: dialogTheme.colorScheme.onTertiaryContainer, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kMediumRadius)), ),
+                                onPressed: () {
+                                  String? generatedCode;
+                                  final difficultyChar = gameProvider.currentPuzzleDifficulty != null && difficultyLabels.containsKey(gameProvider.currentPuzzleDifficulty)
+                                                        ? (difficultyLabels[gameProvider.currentPuzzleDifficulty]![0].toUpperCase())
+                                                        : (gameProvider.currentPuzzleDifficulty == -1 ? 'R' : 'M');
+                                  final timeInSeconds = finalTime.inSeconds;
+                                  final currentHintsUsed = hints;
+
+                                  StringBuffer boardSb = StringBuffer();
+                                  bool boardReconstructionOk = true;
+                                  try {
+                                      if (gameProvider.board.isEmpty || gameProvider.board.length != kGridSize) throw Exception("Board not ready");
+                                      for (int r = 0; r < kGridSize; r++) {
+                                          if (gameProvider.board[r].length != kGridSize) throw Exception("Board row $r not ready");
+                                          for (int c = 0; c < kGridSize; c++) {
+                                              final cell = gameProvider.board[r][c];
+                                              if (cell.isFixed && cell.value != null) { boardSb.write('${cell.value! + 1}'); }
+                                              else { boardSb.write('0'); }
+                                          }
+                                      }
+                                  } catch(e) { boardReconstructionOk = false; if (kDebugMode) print("Error reconstructing board for copying code: $e"); }
+
+                                  if (boardReconstructionOk) {
+                                     // Use 'x' as separator
+                                     generatedCode = '$difficultyChar${'x'}$currentHintsUsed${'x'}$timeInSeconds${'x'}${boardSb.toString()}';
+                                  }
+
+                                   if (generatedCode != null) {
+                                      Clipboard.setData(ClipboardData(text: generatedCode));
+                                      // Update snackbar message slightly
+                                      if (dialogContext.mounted) { ScaffoldMessenger.of(dialogContext).showSnackBar( SnackBar( content: const Text('Puzzle code copied!'), duration: kSnackbarDuration, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kSmallRadius)), ), ); }
+                                   } else { if (dialogContext.mounted) { ScaffoldMessenger.of(dialogContext).showSnackBar( SnackBar( content: const Text('Error generating puzzle code.'), duration: kSnackbarDuration, backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kSmallRadius)), ), ); } }
+                                },
                               ),
-                              onPressed: () { /* ... Clipboard logic ... */
-                                 Clipboard.setData(ClipboardData(text: puzzleCode)); if (dialogContext.mounted) { ScaffoldMessenger.of(dialogContext).showSnackBar( SnackBar( content: const Text('Puzzle code copied to clipboard!'), duration: kSnackbarDuration, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kSmallRadius)), ), ); }
-                              },
-                            ),
-                        
-                        const SizedBox(height: kSmallSpacing),
-                        TextButton( /* ... Close Button ... */
-                          child: Text('Close', style: GoogleFonts.nunito(textStyle: dialogTextTheme.labelLarge?.copyWith(color: dialogTheme.colorScheme.onSurface.withOpacity(0.7)))),
-                          onPressed: () { Navigator.of(dialogContext).pop(); },
-                        ),
-                      ],
-                    ),
-                  ],
+                          // --- END UPDATED Copy Puzzle Code Button ---
+
+                          const SizedBox(height: kSmallSpacing),
+                          TextButton( /* ... Close Button ... */
+                            child: Text('Close', style: GoogleFonts.nunito(textStyle: dialogTextTheme.labelLarge?.copyWith(color: dialogTheme.colorScheme.onSurface.withOpacity(0.7)))),
+                            onPressed: () { Navigator.of(dialogContext).pop(); },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      );
-    },
-  );
-}
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Access providers and theme data
     final settingsProvider = Provider.of<SettingsProvider>(context);
     final gameProvider = Provider.of<GameProvider>(context);
     final currentTheme = Theme.of(context);
     final Gradient? backgroundGradient = Theme.of(context).extension<AppGradients>()?.backgroundGradient;
-    // Define a fallback gradient in case the theme extension is null
     final defaultFallbackGradient = LinearGradient( colors: [ currentTheme.colorScheme.surface, currentTheme.colorScheme.background, ], begin: Alignment.topLeft, end: Alignment.bottomRight, );
-    // Get colors for the title (handle potential palette size issues)
     final List<Color> retroColors = ColorPalette.retro.colors;
     final List<Color> titleColors = retroColors.length >= 8 ? retroColors.sublist(0, 8) : List.generate(8, (i) => retroColors.isNotEmpty ? retroColors[i % retroColors.length] : currentTheme.colorScheme.primary);
-    // Get base title style, providing a default if not defined in theme
     final TextStyle? baseTitleStyle = currentTheme.appBarTheme.titleTextStyle ?? GoogleFonts.nunito(fontSize: kLargeFontSize, fontWeight: FontWeight.bold);
-
-    // Check completion status using selector for efficiency
     final bool isCompleted = context.select((GameProvider gp) => gp.isCompleted);
+    final Duration? timeToBeat = context.select((GameProvider gp) => gp.timeToBeat);
+    final int? initialHints = context.select((GameProvider gp) => gp.initialHintsFromCode);
 
-    // Schedule the completion dialog check after the build is complete
     WidgetsBinding.instance.addPostFrameCallback((_) {
-       // Show dialog ONLY if mounted, game is completed AND the dialog hasn't been shown yet for this completion
        if (mounted && isCompleted && !_completionDialogShown) {
           final finalTime = Provider.of<GameProvider>(context, listen: false).elapsedTime;
           _showCompletionDialog(context, finalTime);
@@ -401,252 +397,77 @@ class _GameScreenState extends State<GameScreen> {
          backgroundColor: currentTheme.brightness == Brightness.dark ? Colors.black.withOpacity(kLowMediumOpacity) : Colors.white.withOpacity(kLowOpacity),
          elevation: 0,
          foregroundColor: currentTheme.colorScheme.onSurface,
-         title: RichText( /* ... Title remains the same ... */
-           text: TextSpan(
-             style: baseTitleStyle,
-             children: <TextSpan>[
-               TextSpan(text: 'R', style: TextStyle(color: titleColors[1 % titleColors.length])),
-               TextSpan(text: 'a', style: TextStyle(color: titleColors[2 % titleColors.length])),
-               TextSpan(text: 'i', style: TextStyle(color: titleColors[0 % titleColors.length])),
-               TextSpan(text: 'n', style: TextStyle(color: titleColors[3 % titleColors.length])),
-               TextSpan(text: 'b', style: TextStyle(color: titleColors[4 % titleColors.length])),
-               TextSpan(text: 'o', style: TextStyle(color: titleColors[5 % titleColors.length])),
-               TextSpan(text: 'k', style: TextStyle(color: titleColors[6 % titleColors.length])),
-               TextSpan(text: 'u', style: TextStyle(color: titleColors[7 % titleColors.length])),
-             ],
-           ),
-         ),
-         // --- CORRECTED Back button logic ---
-         leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            tooltip: 'Back to Home',
-            onPressed: () {
-              print("[DEBUG] Back Button Pressed"); // Keep debug logs
-              final router = GoRouter.of(context);
-              final game = Provider.of<GameProvider>(context, listen: false);
-
-              if (router.canPop()) {
-                 // --- Scenario 1: Normal Navigation History Exists ---
-                 print("[DEBUG] router.canPop() is TRUE - using context.pop()");
-                 game.pauseGame(); // Pause game state
-                 // Ensure pop happens after potential state update settles
-                 Future.delayed(Duration.zero, () {
-                   // Check if context is still valid after delay before popping
-                   if (context.mounted) {
-                     print("[DEBUG] Executing context.pop() after delay");
-                     context.pop();
-                   }
-                 });
-
-              } else {
-                 // --- Scenario 2: No Navigation History (Likely URL Load) ---
-                 print("[DEBUG] router.canPop() is FALSE - checking kIsWeb");
-                 if (kIsWeb) {
-                print("[DEBUG] kIsWeb is TRUE - attempting delayed web reload");
-                final homeUrl = '/rainboku/#/'; // Adjust if needed
-                print("[DEBUG] Scheduling window.location.href set to: $homeUrl");
-                Future.delayed(Duration.zero, () {
-                  print("[DEBUG] Executing window.location.href = homeUrl");
-                  try {
-                     // --- Use the conditional import alias ---
-                     web_interop.window.location.href = homeUrl;
-                     // ---
-                  } catch (e) {
-                     print("[DEBUG] ERROR setting window.location.href: $e");
-                  }
-                });
-                    // No game pause needed as page reloads
-
-                 } else {
-                    // --- Sub-Scenario 2b: Non-Web + URL Load (Delayed) ---
-                    print("[DEBUG] kIsWeb is FALSE - using delayed context.go('/')");
-                    game.pauseGame(); // Pause game state
-                    // Use Future.delayed before navigation
-                    Future.delayed(Duration.zero, () {
-                      // Check if context is still valid after delay
-                      if (context.mounted) {
-                        print("[DEBUG] Executing context.go('/') after delay");
-                        context.go('/');
-                      }
-                    });
-                 }
-              }
-            },
-         ),
-         // --- END CORRECTED Back button logic ---
-         actions: [ /* ... Actions remain the same ... */
-             // Pause/Resume Button
-             Selector<GameProvider, Tuple2<bool, bool>>(
-                selector: (_, game) => Tuple2(game.isPaused, game.isCompleted),
-                builder: (context, data, child) {
-                   final isPaused = data.item1;
-                   final isCompleted = data.item2;
-                   return IconButton(
-                      icon: Icon(isPaused ? Icons.play_arrow : Icons.pause, color: isCompleted ? Colors.grey : null),
-                      tooltip: isCompleted ? 'Game Over' : (isPaused ? 'Resume' : 'Pause'),
-                      onPressed: isCompleted ? null : () {
-                         final game = Provider.of<GameProvider>(context, listen: false);
-                         if (game.isPaused) { game.resumeGame(); } else { game.pauseGame(); }
-                      },
-                   );
-                }
-             ),
-            // Settings Button
-            IconButton(
-              icon: const Icon(Icons.settings_outlined),
-              tooltip: 'Settings',
-              onPressed: () { _showSettingsSheet(context); },
-            ),
-         ],
+         title: RichText( text: TextSpan( style: baseTitleStyle, children: <TextSpan>[ TextSpan(text: 'R', style: TextStyle(color: titleColors[1 % titleColors.length])), TextSpan(text: 'a', style: TextStyle(color: titleColors[2 % titleColors.length])), TextSpan(text: 'i', style: TextStyle(color: titleColors[0 % titleColors.length])), TextSpan(text: 'n', style: TextStyle(color: titleColors[3 % titleColors.length])), TextSpan(text: 'b', style: TextStyle(color: titleColors[4 % titleColors.length])), TextSpan(text: 'o', style: TextStyle(color: titleColors[5 % titleColors.length])), TextSpan(text: 'k', style: TextStyle(color: titleColors[6 % titleColors.length])), TextSpan(text: 'u', style: TextStyle(color: titleColors[7 % titleColors.length])), ], ), ),
+         leading: IconButton( icon: const Icon(Icons.arrow_back), tooltip: 'Back to Home', onPressed: () { final router = GoRouter.of(context); final game = Provider.of<GameProvider>(context, listen: false); if (router.canPop()) { game.pauseGame(); Future.delayed(Duration.zero, () { if (context.mounted) context.pop(); }); } else { if (kIsWeb) { final homeUrl = '/#/'; Future.delayed(Duration.zero, () { try { web_interop.window.location.href = homeUrl; } catch (e) { print("[DEBUG] ERROR setting window.location.href: $e"); } }); } else { game.pauseGame(); Future.delayed(Duration.zero, () { if (context.mounted) context.go('/'); }); } } }, ),
+         actions: [ Selector<GameProvider, Tuple2<bool, bool>>( selector: (_, game) => Tuple2(game.isPaused, game.isCompleted), builder: (context, data, child) { final isPaused = data.item1; final isCompleted = data.item2; return IconButton( icon: Icon(isPaused ? Icons.play_arrow : Icons.pause, color: isCompleted ? Colors.grey : null), tooltip: isCompleted ? 'Game Over' : (isPaused ? 'Resume' : 'Pause'), onPressed: isCompleted ? null : () { final game = Provider.of<GameProvider>(context, listen: false); if (game.isPaused) { game.resumeGame(); } else { game.pauseGame(); } }, ); } ), IconButton( icon: const Icon(Icons.settings_outlined), tooltip: 'Settings', onPressed: () { _showSettingsSheet(context); }, ), ],
        ),
-      body: Stack( // Use Stack for background, particles, and main content
+      body: Stack(
         children: [
-            // Background Gradient Layer
             Container( decoration: BoxDecoration( gradient: backgroundGradient ?? defaultFallbackGradient ) ),
-            // Bokeh Particle Layer (if initialized)
-            if (_particlesInitialized)
-               CustomPaint(
-                 painter: BokehPainter(particles: _particles ),
-                 size: MediaQuery.of(context).size, // Cover entire screen
-               ),
-             // Confetti Overlay Layer
-             Align(
-                alignment: Alignment.topCenter,
-                child: ConfettiWidget(
-                   confettiController: _confettiController,
-                   blastDirectionality: BlastDirectionality.explosive,
-                   shouldLoop: false,
-                   numberOfParticles: kConfettiParticleCount,
-                   gravity: kConfettiGravity,
-                   emissionFrequency: kConfettiEmissionFrequency,
-                   maxBlastForce: kConfettiMaxBlastForce,
-                   minBlastForce: kConfettiMinBlastForce,
-                   particleDrag: kConfettiParticleDrag,
-                   colors: settingsProvider.selectedPalette.colors,
-                   createParticlePath: (size) => Path()..addOval(Rect.fromCircle(center: Offset.zero, radius: size.width / 2)),
-                ),
-             ),
-            // Main Game Content Area Layer
-            SafeArea( // Ensures content isn't obscured by notches, status bars, etc.
-              minimum: const EdgeInsets.only(top: kDefaultPadding, right: kDefaultPadding), // Use constant for minimum safe padding
-              child: Stack( // Use Stack again to overlay the difficulty chip
+            if (_particlesInitialized) CustomPaint( painter: BokehPainter(particles: _particles ), size: MediaQuery.of(context).size, ),
+             Align( alignment: Alignment.topCenter, child: ConfettiWidget( confettiController: _confettiController, blastDirectionality: BlastDirectionality.explosive, shouldLoop: false, numberOfParticles: kConfettiParticleCount, gravity: kConfettiGravity, emissionFrequency: kConfettiEmissionFrequency, maxBlastForce: kConfettiMaxBlastForce, minBlastForce: kConfettiMinBlastForce, particleDrag: kConfettiParticleDrag, colors: settingsProvider.selectedPalette.colors, createParticlePath: (size) => Path()..addOval(Rect.fromCircle(center: Offset.zero, radius: size.width / 2)), ), ),
+            SafeArea(
+              minimum: const EdgeInsets.only(top: kDefaultPadding, right: kDefaultPadding),
+              child: Stack(
                 children: [
-                  Padding( // Padding for the main Column content
-                    padding: const EdgeInsets.only(left: kMediumPadding, right: kMediumPadding, bottom: kMediumPadding, top: 0), // Use constants
-                    child: Column( // Main vertical layout
+                  Padding(
+                    padding: const EdgeInsets.only(left: kMediumPadding, right: kMediumPadding, bottom: kMediumPadding, top: 0),
+                    child: Column(
                       children: <Widget>[
-                          // Timer or Placeholder Area
                           Padding(
-                             padding: const EdgeInsets.symmetric(vertical: kMediumSpacing), // Use constant
-                             child: Consumer<SettingsProvider>( // Listen to settings for timer visibility
+                             padding: const EdgeInsets.symmetric(vertical: kMediumSpacing / 2),
+                             child: Consumer<SettingsProvider>(
                                builder: (context, settings, child) {
-                                 return settings.timerEnabled ? Center(child: TimerWidget()) : const SizedBox(height: 50); // Show timer or reserve space
+                                 final bool showTimer = settings.timerEnabled;
+                                 final bool showChallengeInfo = timeToBeat != null || initialHints != null;
+
+                                 return Container(
+                                   constraints: const BoxConstraints(minHeight: 50),
+                                   child: Row(
+                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                     crossAxisAlignment: CrossAxisAlignment.center,
+                                     children: [
+                                       // Left side: Loaded Info (Formatted)
+                                       Expanded(
+                                         child: Column(
+                                           mainAxisSize: MainAxisSize.min,
+                                           crossAxisAlignment: CrossAxisAlignment.start,
+                                           children: [
+                                             if (showChallengeInfo) Padding( padding: const EdgeInsets.only(left: kMediumPadding, bottom: 4), child: Text( 'To beat:', style: currentTheme.textTheme.bodySmall?.copyWith( fontWeight: FontWeight.bold, color: currentTheme.colorScheme.onSurface.withOpacity(0.8), ), ), ),
+                                             if (timeToBeat != null) Padding( padding: const EdgeInsets.only(left: kMediumPadding + kDefaultPadding, bottom: 2), child: Text( 'Time: ${_formatDuration(timeToBeat)}', style: currentTheme.textTheme.bodySmall?.copyWith( color: currentTheme.colorScheme.onSurface.withOpacity(0.7), fontFeatures: const [ui.FontFeature.tabularFigures()], ), ), ),
+                                             if (initialHints != null) Padding( padding: const EdgeInsets.only(left: kMediumPadding + kDefaultPadding), child: Text( 'Hints: $initialHints', style: currentTheme.textTheme.bodySmall?.copyWith( color: currentTheme.colorScheme.onSurface.withOpacity(0.7), ), ), ),
+                                           ],
+                                         ),
+                                       ),
+
+                                       // Center: Timer Widget
+                                       if (showTimer) const Center(child: TimerWidget()) else const Spacer(),
+
+                                       // Right side: Difficulty Chip
+                                       Expanded( child: Align( alignment: Alignment.centerRight, child: Padding( padding: const EdgeInsets.only(right: kMediumPadding + kDefaultPadding), child: Consumer<GameProvider>( builder: (context, game, child) { final difficultyLevel = game.currentPuzzleDifficulty; final difficultyText = difficultyLevel != null ? difficultyLabels[difficultyLevel] ?? '?' : ''; if (difficultyText.isEmpty) return const SizedBox.shrink(); return Chip( label: Text( difficultyText, style: GoogleFonts.nunito( textStyle: currentTheme.textTheme.labelSmall, color: currentTheme.colorScheme.onSecondaryContainer, fontWeight: FontWeight.w600, ) ), backgroundColor: currentTheme.colorScheme.secondaryContainer.withOpacity(kMediumHighOpacity), padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 0), visualDensity: VisualDensity.compact, side: BorderSide.none, ); } ), ), ), ),
+                                     ],
+                                   ),
+                                 );
                                },
                              ),
                           ),
-                          const SizedBox(height: kMediumSpacing), // Use constant
+                          const SizedBox(height: kMediumSpacing),
 
-                          // Sudoku Grid Area (takes remaining space)
-                          Expanded(
-                             child: Center( // Center the grid within the expanded space
-                                child: AspectRatio( // Ensure the grid is square
-                                  aspectRatio: 1.0,
-                                  child: SudokuGridWidget() // The main interactive grid
-                                )
-                             )
-                          ),
-                          const SizedBox(height: kLargeSpacing), // Use constant
+                          // Sudoku Grid Area
+                          Expanded( child: Center( child: AspectRatio( aspectRatio: 1.0, child: SudokuGridWidget() ) ) ),
+                          const SizedBox(height: kLargeSpacing),
 
-                          // Controls Area (Palette/Buttons or New Game button)
-                          Stack( // Stack to switch between controls and New Game button
+                          // Controls Area
+                          Stack(
                              alignment: Alignment.center,
                              children: [
-                               // Palette and Game Controls (Visible when game is NOT completed)
-                               Visibility(
-                                 visible: !gameProvider.isCompleted,
-                                 maintainState: true, // Keep state when hidden
-                                 maintainAnimation: true, // Keep animation state when hidden
-                                 maintainSize: true, // Keep occupying space when hidden
-                                 child: Column(
-                                    mainAxisSize: MainAxisSize.min, // Shrink-wrap vertically
-                                    children: [
-                                       const PaletteSelectorWidget(), // Color/input palette
-                                       const SizedBox(height: kLargeSpacing), // Use constant
-                                       GameControls(key: _gameControlsKey), // Game action buttons
-                                    ],
-                                 ),
-                               ),
-
-                               // --- REVERTED Visibility for New Game Button ---
-                               Visibility(
-                                 // Visible simply if the game is completed.
-                                 visible: gameProvider.isCompleted,
-                                 child: Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: kExtraLargeSpacing), // Use constant for padding
-                                    child: Center(
-                                       child: ElevatedButton.icon(
-                                          icon: const Icon(Icons.refresh),
-                                          label: Text('New Game', style: GoogleFonts.nunito(fontSize: kDefaultFontSizeConst)), // Use constant
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: currentTheme.colorScheme.primaryContainer,
-                                            foregroundColor: currentTheme.colorScheme.onPrimaryContainer,
-                                            padding: const EdgeInsets.symmetric(horizontal: 35, vertical: kDefaultFontSizeConst), // Use constant
-                                            textStyle: GoogleFonts.nunito(fontSize: kDefaultFontSizeConst, fontWeight: FontWeight.w600), // Use constant
-                                            elevation: kHighElevation, // Use constant
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kMediumRadius)), // Use constant
-                                          ),
-                                          onPressed: () {
-                                             // Logic to start a new game
-                                             final game = Provider.of<GameProvider>(context, listen: false);
-                                             final settings = Provider.of<SettingsProvider>(context, listen: false);
-                                             final int initialDifficulty = game.initialDifficultySelection ?? 1; // Default difficulty
-                                             if (initialDifficulty == -1) { settings.selectRandomPalette(); } // Handle random difficulty selection
-                                             // Reset dialog shown flag BEFORE loading the new puzzle
-                                             if (mounted) { setState(() { _completionDialogShown = false; }); }
-                                             game.loadNewPuzzle(difficulty: initialDifficulty); // Load it
-                                             _regenerateBokehParticles(); // Update background
-                                             _startIntroAnimationSequenceIfNeeded(); // Trigger intro animation if applicable
-                                           },
-                                        ),
-                                    ),
-                                 ),
-                               ),
-                                // --- End REVERTED Visibility ---
+                               Visibility( visible: !gameProvider.isCompleted, maintainState: true, maintainAnimation: true, maintainSize: true, child: Column( mainAxisSize: MainAxisSize.min, children: [ const PaletteSelectorWidget(), const SizedBox(height: kLargeSpacing), GameControls(key: _gameControlsKey), ], ), ),
+                               Visibility( visible: gameProvider.isCompleted, child: Padding( padding: const EdgeInsets.symmetric(vertical: kExtraLargeSpacing), child: Center( child: ElevatedButton.icon( icon: const Icon(Icons.refresh), label: Text('New Game', style: GoogleFonts.nunito(fontSize: kDefaultFontSizeConst)), style: ElevatedButton.styleFrom( backgroundColor: currentTheme.colorScheme.primaryContainer, foregroundColor: currentTheme.colorScheme.onPrimaryContainer, padding: const EdgeInsets.symmetric(horizontal: 35, vertical: kDefaultFontSizeConst), textStyle: GoogleFonts.nunito(fontSize: kDefaultFontSizeConst, fontWeight: FontWeight.w600), elevation: kHighElevation, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kMediumRadius)), ), onPressed: () { final game = Provider.of<GameProvider>(context, listen: false); final settings = Provider.of<SettingsProvider>(context, listen: false); final int initialDifficulty = game.initialDifficultySelection ?? 1; if (initialDifficulty == -1) { settings.selectRandomPalette(); } if (mounted) { setState(() { _completionDialogShown = false; }); } game.loadNewPuzzle(difficulty: initialDifficulty); _regenerateBokehParticles(); _startIntroAnimationSequenceIfNeeded(); }, ), ), ), ),
                              ],
                            ),
-                          const SizedBox(height: kMediumSpacing), // Bottom padding inside SafeArea
+                          const SizedBox(height: kMediumSpacing),
                       ],
                     ),
-                  ),
-                  // Difficulty Chip (Overlayed in top-right corner)
-                  Align(
-                     alignment: Alignment.topRight,
-                     child: Padding(
-                       padding: const EdgeInsets.only(top: 4.0, right: 4.0), // Fine-tune position
-                       child: Consumer<GameProvider>( // Listen only to GameProvider for difficulty
-                         builder: (context, game, child) {
-                            final difficultyLevel = game.currentPuzzleDifficulty;
-                            final difficultyText = difficultyLevel != null ? difficultyLabels[difficultyLevel] ?? '?' : ''; // Get label from map
-                            if (difficultyText.isEmpty) return const SizedBox.shrink(); // Render nothing if no text
-
-                            // Display the difficulty in a small Chip
-                            return Chip(
-                                label: Text(
-                                   difficultyText,
-                                   style: GoogleFonts.nunito(
-                                      textStyle: currentTheme.textTheme.labelSmall, // Use small label style
-                                      color: currentTheme.colorScheme.onSecondaryContainer, // Ensure contrast
-                                      fontWeight: FontWeight.w600,
-                                   )
-                                ),
-                                backgroundColor: currentTheme.colorScheme.secondaryContainer.withOpacity(kMediumHighOpacity), // Use constant opacity
-                                padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 0), // Compact padding
-                                visualDensity: VisualDensity.compact, // Reduce chip size
-                                side: BorderSide.none, // No border
-                            );
-                          }
-                       ),
-                     ),
                   ),
                 ],
               ),
@@ -656,7 +477,7 @@ class _GameScreenState extends State<GameScreen> {
     );
   }}
 
-// Helper class Tuple2 (Unchanged)
+// Helper class Tuple2
 class Tuple2<T1, T2> {
   final T1 item1;
   final T2 item2;
